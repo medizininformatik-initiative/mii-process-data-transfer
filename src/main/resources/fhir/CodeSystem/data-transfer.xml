@@ -1,0 +1,49 @@
+<CodeSystem xmlns="http://hl7.org/fhir">
+	<meta>
+		<tag>
+			<system value="http://dsf.dev/fhir/CodeSystem/read-access-tag" />
+			<code value="ALL" />
+		</tag>
+	</meta>
+	<url value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+	<!-- version managed by bpe -->
+	<version value="#{version}" />
+	<name value="DataTransfer" />
+	<title value="Data Transfer" />
+	<!-- status managed by bpe -->
+	<status value="unknown" />
+	<experimental value="false" />
+	<!-- date managed by bpe -->
+	<date value="#{date}" />
+	<publisher value="Medizininformatik-Initiative" />
+	<description value="CodeSystem with standard values for the data-transfer process" />
+	<caseSensitive value="true" />
+	<hierarchyMeaning value="grouped-by" />
+	<versionNeeded value="false" />
+	<content value="complete" />
+	<concept>
+		<code value="dms-identifier" />
+		<display value="DMS Identifier" />
+		<definition value="Organization identifier of a DMS" />
+	</concept>
+	<concept>
+		<code value="project-identifier" />
+		<display value="Project Identifier" />
+		<definition value="Project identifier for which a data-set should be transmitted" />
+	</concept>
+	<concept>
+		<code value="data-set-reference" />
+		<display value="Data-set Reference" />
+		<definition value="Reference to a Binary data-set on a DSF FHIR server" />
+	</concept>
+	<concept>
+		<code value="document-reference-location" />
+		<display value="Document Reference Location" />
+		<definition value="Canonical location of a DocumentReference on a FHIR store" />
+	</concept>
+	<concept>
+		<code value="data-set-status" />
+		<display value="Data-Set Status" />
+		<definition value="Data-set status of local organization" />
+	</concept>
+</CodeSystem> 

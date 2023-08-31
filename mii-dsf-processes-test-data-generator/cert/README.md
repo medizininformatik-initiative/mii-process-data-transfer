@@ -1,1 +1,0 @@
-Will contain test certificates generated in the build process

@@ -1,1 +1,0 @@
-Will contain FHIR bundle generated in the build process
