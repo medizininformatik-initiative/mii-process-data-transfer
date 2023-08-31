@@ -49,11 +49,11 @@
 	<concept>
 		<code value="receive-ok" />
 		<display value="Receive ok" />
-		<definition value="Report received from DIC" />
+		<definition value="Data-set received from DIC" />
 	</concept>
 	<concept>
 		<code value="receive-error" />
 		<display value="Receive error" />
-		<definition value="Error receiving report from DIC" />
+		<definition value="Error receiving data-set from DIC" />
 	</concept>
 </CodeSystem>
