@@ -1,0 +1,155 @@
+<ActivityDefinition xmlns="http://hl7.org/fhir">
+	<meta>
+		<tag>
+			<system value="http://dsf.dev/fhir/CodeSystem/read-access-tag" />
+			<code value="ALL" />
+		</tag>
+	</meta>
+	<extension
+		url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">
+		<extension url="message-name">
+			<valueString value="dataSendStart" />
+		</extension>
+		<extension url="task-profile">
+			<valueCanonical
+					value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-send-start|#{version}" />
+		</extension>
+		<extension url="requester">
+			<valueCoding>
+				<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role">
+					<extension url="parent-organization">
+						<valueIdentifier>
+							<system value="http://dsf.dev/sid/organization-identifier" />
+							<value value="medizininformatik-initiative.de" />
+						</valueIdentifier>
+					</extension>
+					<extension url="organization-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/organization-role" />
+							<code value="DIC" />
+						</valueCoding>
+					</extension>
+				</extension>
+				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
+				<code value="LOCAL_ROLE" />
+			</valueCoding>
+		</extension>
+		<extension url="requester">
+			<valueCoding>
+				<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role-practitioner">
+					<extension url="parent-organization">
+						<valueIdentifier>
+							<system value="http://dsf.dev/sid/organization-identifier" />
+							<value value="medizininformatik-initiative.de" />
+						</valueIdentifier>
+					</extension>
+					<extension url="organization-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/organization-role" />
+							<code value="DIC" />
+						</valueCoding>
+					</extension>
+					<extension url="practitioner-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/practitioner-role" />
+							<code value="DSF_ADMIN" />
+						</valueCoding>
+					</extension>
+				</extension>
+				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
+				<code value="LOCAL_ROLE_PRACTITIONER" />
+			</valueCoding>
+		</extension>
+		<extension url="recipient">
+			<valueCoding>
+				<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role">
+					<extension url="parent-organization">
+						<valueIdentifier>
+							<system value="http://dsf.dev/sid/organization-identifier" />
+							<value value="medizininformatik-initiative.de" />
+						</valueIdentifier>
+					</extension>
+					<extension url="organization-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/organization-role" />
+							<code value="DIC" />
+						</valueCoding>
+					</extension>
+				</extension>
+				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
+				<code value="LOCAL_ROLE" />
+			</valueCoding>
+		</extension>
+	</extension>
+	<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">
+		<extension url="message-name">
+			<valueString value="dataReceive" />
+		</extension>
+		<extension url="task-profile">
+			<valueCanonical value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-receive|#{version}" />
+		</extension>
+		<extension url="requester">
+			<valueCoding>
+				<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role">
+					<extension url="parent-organization">
+						<valueIdentifier>
+							<system value="http://dsf.dev/sid/organization-identifier" />
+							<value value="medizininformatik-initiative.de" />
+						</valueIdentifier>
+					</extension>
+					<extension url="organization-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/organization-role" />
+							<code value="DMS" />
+						</valueCoding>
+					</extension>
+				</extension>
+				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
+				<code value="REMOTE_ROLE" />
+			</valueCoding>
+		</extension>
+		<extension url="recipient">
+			<valueCoding>
+				<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization-parent-organization-role">
+					<extension url="parent-organization">
+						<valueIdentifier>
+							<system value="http://dsf.dev/sid/organization-identifier" />
+							<value value="medizininformatik-initiative.de" />
+						</valueIdentifier>
+					</extension>
+					<extension url="organization-role">
+						<valueCoding>
+							<system value="http://dsf.dev/fhir/CodeSystem/organization-role" />
+							<code value="DIC" />
+						</valueCoding>
+					</extension>
+				</extension>
+				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
+				<code value="LOCAL_ROLE" />
+			</valueCoding>
+		</extension>
+	</extension>
+	<url
+		value="http://medizininformatik-initiative.de/bpe/Process/dataSend" />
+	<!-- version managed by bpe -->
+	<version value="#{version}" />
+	<name value="dataSend" />
+	<title value="Data Send Process" />
+	<subtitle value="Data Send to Data Management Site Process" />
+	<!-- status managed by bpe -->
+	<status value="unknown" />
+	<experimental value="false" />
+	<!-- date managed by bpe -->
+	<date value="#{date}" />
+	<publisher value="Medizininformatik-Initiative" />
+	<contact>
+		<name value="Medizininformatik-Initiative" />
+		<telecom>
+			<system value="email" />
+			<value value="info@medizininformatik-initiative.de" />
+		</telecom>
+	</contact>
+	<description
+		value="Process to read, validate, encrypt and send datasets to a data management site" />
+	<kind value="Task" />
+</ActivityDefinition>
