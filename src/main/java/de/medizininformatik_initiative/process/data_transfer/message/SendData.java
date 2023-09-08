@@ -75,20 +75,8 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 	}
 
 	@Override
-	protected void handleIntermediateThrowEventError(DelegateExecution execution, Variables variables,
-			Exception exception, String errorMessage)
-	{
-		handleError(variables, exception);
-	}
-
-	@Override
 	protected void handleSendTaskError(DelegateExecution execution, Variables variables, Exception exception,
 			String errorMessage)
-	{
-		handleError(variables, exception);
-	}
-
-	private void handleError(Variables variables, Exception exception)
 	{
 		Task task = variables.getStartTask();
 
