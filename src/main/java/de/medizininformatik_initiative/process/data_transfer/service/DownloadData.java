@@ -16,8 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -70,7 +70,9 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		{
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(statusGenerator.createDataSetStatusOutput(
-					ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, "Download data-set failed"));
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Download data-set failed"));
 			variables.updateTask(task);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,

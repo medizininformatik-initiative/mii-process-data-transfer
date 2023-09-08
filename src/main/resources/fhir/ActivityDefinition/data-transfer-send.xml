@@ -83,10 +83,10 @@
 	</extension>
 	<extension url="http://dsf.dev/fhir/StructureDefinition/extension-process-authorization">
 		<extension url="message-name">
-			<valueString value="dataReceive" />
+			<valueString value="dataStatus" />
 		</extension>
 		<extension url="task-profile">
-			<valueCanonical value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-receive|#{version}" />
+			<valueCanonical value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-status|#{version}" />
 		</extension>
 		<extension url="requester">
 			<valueCoding>

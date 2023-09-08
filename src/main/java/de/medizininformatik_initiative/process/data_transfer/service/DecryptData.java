@@ -14,10 +14,11 @@ import org.springframework.beans.factory.InitializingBean;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.RsaAesGcmUtil;
 import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
+import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -78,7 +79,9 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 		{
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(statusGenerator.createDataSetStatusOutput(
-					ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, "Decrypt data-set failed"));
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Decrypt data-set failed"));
 			variables.updateTask(task);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,

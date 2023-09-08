@@ -5,7 +5,7 @@
       <code value="ALL" />
     </tag>
   </meta>
-  <url value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-receive" />
+  <url value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-status" />
   <!-- version managed by bpe -->
   <version value="#{version}" />
   <name value="TaskDataReceive" />
@@ -36,7 +36,7 @@
     </element>
     <element id="Task.input:message-name.value[x]">
       <path value="Task.input.value[x]" />
-      <fixedString value="dataReceive" />
+      <fixedString value="dataStatus" />
     </element>
     <element id="Task.input:business-key">
       <path value="Task.input" />

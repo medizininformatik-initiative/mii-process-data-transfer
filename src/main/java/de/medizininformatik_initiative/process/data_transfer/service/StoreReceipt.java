@@ -10,8 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -64,25 +64,28 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 
 	private void handleReceivedResponse(Task startTask, Task currentTask)
 	{
-		statusGenerator.transformInputToOutput(currentTask, startTask);
+		statusGenerator.transformInputToOutput(currentTask, startTask, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS);
 
 		if (startTask.getOutput().stream().filter(Task.TaskOutputComponent::hasExtension)
 				.flatMap(o -> o.getExtension().stream())
-				.anyMatch(e -> ConstantsDataTransfer.EXTENSION_DATA_SET_STATUS_ERROR_URL.equals(e.getUrl())))
+				.anyMatch(e -> ConstantsBase.EXTENSION_DATA_SET_STATUS_ERROR_URL.equals(e.getUrl())))
 			startTask.setStatus(Task.TaskStatus.FAILED);
 	}
 
 	private void handleMissingResponse(Task startTask)
 	{
 		startTask.setStatus(Task.TaskStatus.FAILED);
-		startTask.addOutput(statusGenerator
-				.createDataSetStatusOutput(ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING));
+		startTask.addOutput(statusGenerator.createDataSetStatusOutput(
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 	}
 
 	private void writeStatusLogAndSendMail(Task startTask, String projectIdentifier, String dmsIdentifier)
 	{
-		startTask.getOutput().stream().filter(o -> o.getValue() instanceof Coding).filter(
-				o -> ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS.equals(((Coding) o.getValue()).getSystem()))
+		startTask.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
+				.filter(o -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(((Coding) o.getValue()).getSystem()))
 				.forEach(o -> doWriteStatusLogAndSendMail(o, startTask.getId(), projectIdentifier, dmsIdentifier));
 	}
 
@@ -94,19 +97,21 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		String error = output.hasExtension() ? output.getExtensionFirstRep().getValueAsPrimitive().getValueAsString()
 				: "none";
 
-		String errorLog = error.isBlank() ? "" : " - " + error;
-		if (ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK.equals(code))
+		if (ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK.equals(code))
 		{
 			logger.info(
 					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'",
 					startTaskId, projectIdentifier, dmsIdentifier, code);
+
 			sendSuccessfulMail(projectIdentifier, dmsIdentifier, code);
 		}
 		else
 		{
+			String errorLog = error.isBlank() ? "" : " - " + error;
 			logger.warn(
 					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'{}",
 					startTaskId, projectIdentifier, dmsIdentifier, code, errorLog);
+
 			sendErrorMail(startTaskId, projectIdentifier, dmsIdentifier, code, error);
 		}
 	}

@@ -16,8 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -92,18 +92,20 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 	{
 		Task task = variables.getStartTask();
 
-		String statusCode = ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE;
+		String statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE;
 		if (exception instanceof WebApplicationException webApplicationException)
 		{
 			if (webApplicationException.getResponse() != null
 					&& webApplicationException.getResponse().getStatus() == Response.Status.FORBIDDEN.getStatusCode())
 			{
-				statusCode = ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
+				statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
 			}
 		}
 
 		task.setStatus(Task.TaskStatus.FAILED);
-		task.addOutput(statusGenerator.createDataSetStatusOutput(statusCode, "Send data-set failed"));
+		task.addOutput(
+				statusGenerator.createDataSetStatusOutput(statusCode, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Send data-set failed"));
 		variables.updateTask(task);
 
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE,

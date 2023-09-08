@@ -18,9 +18,9 @@ public interface ConstantsDataTransfer
 	String PROFILE_TASK_DATA_SEND_PROCESS_URI = ConstantsBase.PROCESS_MII_URI_BASE + PROCESS_NAME_DATA_RECEIVE;
 	String PROFILE_TASK_DATA_SEND_MESSAGE_NAME = "dataSend";
 
-	String PROFILE_TASK_DATA_RECEIVE = "http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-receive";
-	String PROFILE_TASK_DATA_RECEIVE_PROCESS_URI = ConstantsBase.PROCESS_MII_URI_BASE + PROCESS_NAME_DATA_SEND;
-	String PROFILE_TASK_DATA_RECEIVE_MESSAGE_NAME = "dataReceive";
+	String PROFILE_TASK_DATA_STATUS = "http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-status";
+	String PROFILE_TASK_DATA_STATUS_PROCESS_URI = ConstantsBase.PROCESS_MII_URI_BASE + PROCESS_NAME_DATA_SEND;
+	String PROFILE_TASK_DATA_STATUS_MESSAGE_NAME = "dataStatus";
 
 	String BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER = "projectIdentifier";
 	String BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER = "dms-identifier";
@@ -40,15 +40,4 @@ public interface ConstantsDataTransfer
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE = "data-set-reference";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION = "document-reference-location";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS = "data-set-status";
-
-	String CODESYSTEM_DATA_SET_STATUS = "http://medizininformatik-initiative.de/fhir/CodeSystem/data-set-status";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED = "not-allowed";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE = "not-reachable";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING = "receipt-missing";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK = "receipt-ok";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR = "receipt-error";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK = "receive-ok";
-	String CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR = "receive-error";
-
-	String EXTENSION_DATA_SET_STATUS_ERROR_URL = "http://medizininformatik-initiative.de/fhir/StructureDefinition/extension-data-set-status-error";
 }
