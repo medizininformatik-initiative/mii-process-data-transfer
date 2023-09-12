@@ -52,7 +52,7 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 	@Override
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
-		Task task = variables.getLatestTask();
+		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -87,15 +87,14 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 				throw new RuntimeException("Bundle contains " + countDr + " DocumentReferences (expected 1)");
 			}
 
-			String identifierRequester = variables.getStartTask().getRequester().getIdentifier().getValue();
 			String identifierAuthor = documentReferences.stream().filter(DocumentReference::hasAuthor)
 					.flatMap(dr -> dr.getAuthor().stream()).filter(Reference::hasIdentifier)
 					.map(Reference::getIdentifier).filter(Identifier::hasValue).map(Identifier::getValue).findFirst()
 					.orElse("no-author");
-			if (!identifierAuthor.equals(identifierRequester))
+			if (!identifierAuthor.equals(sendingOrganization))
 			{
 				throw new RuntimeException("Requester in Task does not match author in DocumentReference ("
-						+ identifierRequester + " != " + identifierAuthor + ")");
+						+ sendingOrganization + " != " + identifierAuthor + ")");
 			}
 
 			long countMi = documentReferences.stream().filter(DocumentReference::hasMasterIdentifier)
