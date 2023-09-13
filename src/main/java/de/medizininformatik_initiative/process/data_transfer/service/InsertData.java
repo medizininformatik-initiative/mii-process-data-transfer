@@ -17,9 +17,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClient;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
+import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -67,17 +68,21 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		{
 			List<IdType> createdIds = storeData(variables, fhirClient, bundle, sendingOrganization, projectIdentifier);
 
-			task.addOutput(statusGenerator
-					.createDataSetStatusOutput(ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK));
+			task.addOutput(
+					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 			variables.updateTask(task);
 
-			sendMail(createdIds, sendingOrganization, projectIdentifier);
+			sendMail(task, createdIds, sendingOrganization, projectIdentifier);
 		}
 		catch (Exception exception)
 		{
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(statusGenerator.createDataSetStatusOutput(
-					ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, "Insert data-set failed"));
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Insert data-set failed"));
 			variables.updateTask(task);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,
@@ -104,24 +109,25 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				.map(IdType::new).map(id -> setIdBase(id, fhirClient)).collect(toList());
 
 		idsOfCreatedResources.stream().filter(i -> ResourceType.DocumentReference.name().equals(i.getResourceType()))
-				.forEach(i -> addOutputToLeadingTask(variables, i));
+				.forEach(i -> addOutputToStartTask(variables, i));
 
 		idsOfCreatedResources.forEach(id -> toLogMessage(id, sendingOrganization, projectIdentifier));
 
 		return idsOfCreatedResources;
 	}
 
-	private void sendMail(List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
+	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
 	{
 		String subject = "New data-set received in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE
 				+ "'";
-		StringBuilder message = new StringBuilder("New data-set has been stored for project-identifier '")
-				.append(projectIdentifier).append("' in process '")
-				.append(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE).append("' received from organization '")
-				.append(sendingOrganization).append("' and can be accessed using the following links:\n");
+		StringBuilder message = new StringBuilder("A new data-set has been stored in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
+				+ "' received from organization '" + sendingOrganization + "' for project-identifier '"
+				+ projectIdentifier + "' with status code '" + ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK
+				+ "' and can be accessed using the following links:\n");
 
 		for (IdType id : createdIds)
-			message.append("- ").append(id.getValue()).append("\n");
+			message.append(id.getValue()).append("\n");
 
 		api.getMailService().send(subject, message.toString());
 	}
@@ -140,7 +146,7 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				projectIdentifier);
 	}
 
-	private void addOutputToLeadingTask(Variables variables, IdType id)
+	private void addOutputToStartTask(Variables variables, IdType id)
 	{
 		Task startTask = variables.getStartTask();
 		startTask.addOutput().setValue(new Reference(id.getValue()).setType(id.getResourceType())).getType().addCoding()

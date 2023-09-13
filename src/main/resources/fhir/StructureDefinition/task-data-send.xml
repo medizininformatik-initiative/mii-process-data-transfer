@@ -205,7 +205,7 @@
 			<path value="Task.output.type"/>
 			<binding>
 				<strength value="required"/>
-				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/report|#{version}"/>
+				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
 			</binding>
 		</element>
 		<element id="Task.output:data-set-status.type.coding">
@@ -216,7 +216,7 @@
 		<element id="Task.output:data-set-status.type.coding.system">
 			<path value="Task.output.type.coding.system"/>
 			<min value="1"/>
-			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/report"/>
+			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
 		</element>
 		<element id="Task.output:data-set-status.type.coding.code">
 			<path value="Task.output.type.coding.code"/>

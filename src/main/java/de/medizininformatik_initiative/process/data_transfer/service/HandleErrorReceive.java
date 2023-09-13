@@ -20,26 +20,25 @@ public class HandleErrorReceive extends AbstractServiceDelegate
 	protected void doExecute(DelegateExecution delegateExecution, Variables variables)
 	{
 		Task task = variables.getStartTask();
-
-		if (Task.TaskStatus.FAILED.equals(task.getStatus()))
-		{
-			sendMail(task, variables);
-			api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-					.update(task);
-		}
-	}
-
-	private void sendMail(Task task, Variables variables)
-	{
+		String projectIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String error = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE);
 
+		sendMail(task, projectIdentifier, error);
+		api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
+				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
+				.update(task);
+	}
+
+	private void sendMail(Task task, String projectIdentifier, String error)
+	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
 		String message = "Could not download and insert new data-set in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' from organization '"
-				+ task.getRequester().getIdentifier().getValue() + "' in Task with id '" + task.getId() + "':\n"
-				+ "- status code: " + ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR + "\n"
-				+ "- error: " + (error == null ? "none" : error);
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
+				+ "' from organization '" + task.getRequester().getIdentifier().getValue()
+				+ "' for project-identifier '" + projectIdentifier + "':\n" + "- status code: "
+				+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR + "\n" + "- error: "
+				+ (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);
 	}

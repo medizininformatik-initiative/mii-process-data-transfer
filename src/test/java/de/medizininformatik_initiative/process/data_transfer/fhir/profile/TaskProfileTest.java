@@ -22,8 +22,8 @@ import ca.uhn.fhir.validation.ResultSeverityEnum;
 import ca.uhn.fhir.validation.ValidationResult;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.constants.CodeSystems;
 import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.fhir.validation.ResourceValidator;
@@ -39,11 +39,11 @@ public class TaskProfileTest
 	public static final ValidationSupportRule validationRule = new ValidationSupportRule(def.getResourceVersion(),
 			def.getResourceReleaseDate(),
 			Arrays.asList("dsf-task-base-1.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
-					"task-data-receive.xml", "task-data-send.xml"),
+					"task-data-send.xml", "task-data-status.xml"),
 			Arrays.asList("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
-					"data-set-status.xml", "mii-cryptography.xml"),
+					"mii-cryptography.xml", "mii-data-set-status.xml"),
 			Arrays.asList("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
-					"data-set-status-receive.xml", "data-set-status-send.xml", "mii-cryptography.xml"));
+					"mii-cryptography.xml", "mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
 
 	private final ResourceValidator resourceValidator = new ResourceValidatorImpl(validationRule.getFhirContext(),
 			validationRule.getValidationSupport());
@@ -65,7 +65,9 @@ public class TaskProfileTest
 	{
 		Task task = createValidTaskDataSendStart();
 		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
-				ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE, "some error message"));
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
 
 		ValidationResult result = resourceValidator.validate(task);
 		ValidationSupportRule.logValidationMessages(logger, result);
@@ -120,8 +122,10 @@ public class TaskProfileTest
 	public void testTaskDataSendValidWithReportStatusOutput()
 	{
 		Task task = createValidTaskDataSend();
-		task.addOutput(new DataSetStatusGenerator()
-				.createDataSetStatusOutput(ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK));
+		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 
 		ValidationResult result = resourceValidator.validate(task);
 		ValidationSupportRule.logValidationMessages(logger, result);
@@ -135,7 +139,9 @@ public class TaskProfileTest
 	{
 		Task task = createValidTaskDataSend();
 		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
-				ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, "some error message"));
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
 
 		ValidationResult result = resourceValidator.validate(task);
 		ValidationSupportRule.logValidationMessages(logger, result);
@@ -173,27 +179,14 @@ public class TaskProfileTest
 		return task;
 	}
 
-
 	@Test
-	public void testTaskDataReceiveValidWithResponseInput()
+	public void testTaskDataStatusValidWithResponseInput()
 	{
-		Task task = createValidTaskDataReceive();
-		task.addInput(new DataSetStatusGenerator()
-				.createDataSetStatusInput(ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK));
-
-		ValidationResult result = resourceValidator.validate(task);
-		ValidationSupportRule.logValidationMessages(logger, result);
-
-		assertEquals(0, result.getMessages().stream().filter(m -> ResultSeverityEnum.ERROR.equals(m.getSeverity())
-				|| ResultSeverityEnum.FATAL.equals(m.getSeverity())).count());
-	}
-
-	@Test
-	public void testTaskDataReceiveValidWithResponseInputError()
-	{
-		Task task = createValidTaskDataReceive();
+		Task task = createValidTaskDataStatus();
 		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(
-				ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR, "some error message"));
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 
 		ValidationResult result = resourceValidator.validate(task);
 		ValidationSupportRule.logValidationMessages(logger, result);
@@ -202,12 +195,28 @@ public class TaskProfileTest
 				|| ResultSeverityEnum.FATAL.equals(m.getSeverity())).count());
 	}
 
-	private Task createValidTaskDataReceive()
+	@Test
+	public void testTaskDataStatusValidWithResponseInputError()
+	{
+		Task task = createValidTaskDataStatus();
+		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
+
+		ValidationResult result = resourceValidator.validate(task);
+		ValidationSupportRule.logValidationMessages(logger, result);
+
+		assertEquals(0, result.getMessages().stream().filter(m -> ResultSeverityEnum.ERROR.equals(m.getSeverity())
+				|| ResultSeverityEnum.FATAL.equals(m.getSeverity())).count());
+	}
+
+	private Task createValidTaskDataStatus()
 	{
 		Task task = new Task();
-		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_RECEIVE + "|" + def.getResourceVersion());
+		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS + "|" + def.getResourceVersion());
 		task.setInstantiatesCanonical(
-				ConstantsDataTransfer.PROFILE_TASK_DATA_RECEIVE_PROCESS_URI + "|" + def.getResourceVersion());
+				ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_PROCESS_URI + "|" + def.getResourceVersion());
 		task.setStatus(TaskStatus.REQUESTED);
 		task.setIntent(TaskIntent.ORDER);
 		task.setAuthoredOn(new Date());
@@ -215,9 +224,8 @@ public class TaskProfileTest
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue("DIC"));
 		task.getRestriction().addRecipient().setType(ResourceType.Organization.name())
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue("DIC"));
-		;
 
-		task.addInput().setValue(new StringType(ConstantsDataTransfer.PROFILE_TASK_DATA_RECEIVE_MESSAGE_NAME)).getType()
+		task.addInput().setValue(new StringType(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME)).getType()
 				.addCoding(CodeSystems.BpmnMessage.messageName());
 		task.addInput().setValue(new StringType(UUID.randomUUID().toString())).getType()
 				.addCoding(CodeSystems.BpmnMessage.businessKey());

@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.MimeTypeHelper;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
@@ -52,7 +52,7 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 	@Override
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
-		Task task = variables.getLatestTask();
+		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -87,15 +87,14 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 				throw new RuntimeException("Bundle contains " + countDr + " DocumentReferences (expected 1)");
 			}
 
-			String identifierRequester = variables.getStartTask().getRequester().getIdentifier().getValue();
 			String identifierAuthor = documentReferences.stream().filter(DocumentReference::hasAuthor)
 					.flatMap(dr -> dr.getAuthor().stream()).filter(Reference::hasIdentifier)
 					.map(Reference::getIdentifier).filter(Identifier::hasValue).map(Identifier::getValue).findFirst()
 					.orElse("no-author");
-			if (!identifierAuthor.equals(identifierRequester))
+			if (!identifierAuthor.equals(sendingOrganization))
 			{
 				throw new RuntimeException("Requester in Task does not match author in DocumentReference ("
-						+ identifierRequester + " != " + identifierAuthor + ")");
+						+ sendingOrganization + " != " + identifierAuthor + ")");
 			}
 
 			long countMi = documentReferences.stream().filter(DocumentReference::hasMasterIdentifier)
@@ -127,7 +126,9 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 		{
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(statusGenerator.createDataSetStatusOutput(
-					ConstantsDataTransfer.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, "Validate data-set failed"));
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Validate data-set failed"));
 			variables.updateTask(task);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,
