@@ -42,9 +42,9 @@ public class HandleErrorSend extends AbstractServiceDelegate
 
 		String subject = "Error in process '" + ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR + "'";
 		String message = "Could not send data-set in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND
-				+ "' to DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
-				+ "' in Task with id '" + task.getId() + "':\n" + "- status code: " + statusCode + "\n" + "- error: "
-				+ (error == null ? "none" : error);
+				+ "' for Task with id '" + task.getId() + "' to DMS with identifier '" + dmsIdentifier
+				+ "' for project-identifier '" + projectIdentifier + "':\n" + "- status code: " + statusCode + "\n"
+				+ "- error: " + (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);
 	}

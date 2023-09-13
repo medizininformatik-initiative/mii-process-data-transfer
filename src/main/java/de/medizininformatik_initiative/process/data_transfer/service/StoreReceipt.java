@@ -86,11 +86,11 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 	{
 		startTask.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
 				.filter(o -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(((Coding) o.getValue()).getSystem()))
-				.forEach(o -> doWriteStatusLogAndSendMail(o, startTask.getId(), projectIdentifier, dmsIdentifier));
+				.forEach(o -> doWriteStatusLogAndSendMail(o, startTask, projectIdentifier, dmsIdentifier));
 	}
 
-	private void doWriteStatusLogAndSendMail(Task.TaskOutputComponent output, String startTaskId,
-			String projectIdentifier, String dmsIdentifier)
+	private void doWriteStatusLogAndSendMail(Task.TaskOutputComponent output, Task task, String projectIdentifier,
+			String dmsIdentifier)
 	{
 		Coding status = (Coding) output.getValue();
 		String code = status.getCode();
@@ -101,40 +101,40 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		{
 			logger.info(
 					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'",
-					startTaskId, projectIdentifier, dmsIdentifier, code);
+					task, projectIdentifier, dmsIdentifier, code);
 
-			sendSuccessfulMail(projectIdentifier, dmsIdentifier, code);
+			sendSuccessfulMail(task, projectIdentifier, dmsIdentifier, code);
 		}
 		else
 		{
 			String errorLog = error.isBlank() ? "" : " - " + error;
 			logger.warn(
 					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'{}",
-					startTaskId, projectIdentifier, dmsIdentifier, code, errorLog);
+					task.getId(), projectIdentifier, dmsIdentifier, code, errorLog);
 
-			sendErrorMail(startTaskId, projectIdentifier, dmsIdentifier, code, error);
+			sendErrorMail(task, projectIdentifier, dmsIdentifier, code, error);
 		}
 	}
 
-	private void sendSuccessfulMail(String projectIdentifier, String dmsIdentifier, String code)
+	private void sendSuccessfulMail(Task task, String projectIdentifier, String dmsIdentifier, String code)
 	{
 		String subject = "Data-set successfully delivered in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
-		String message = "A data-set has been successfully delivered and retrieved by the DMS with identifier '"
-				+ dmsIdentifier + "' for project-identifier '" + projectIdentifier + "' with status code '" + code
-				+ "' in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
+		String message = "A data-set has been successfully delivered and retrieved in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
+				+ "' to/from DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
+				+ "' with status code '" + code + "'";
 
 		api.getMailService().send(subject, message);
 	}
 
-	private void sendErrorMail(String startTaskId, String projectIdentifier, String dmsIdentifier, String code,
-			String error)
+	private void sendErrorMail(Task task, String projectIdentifier, String dmsIdentifier, String code, String error)
 	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
-		String message = "DMS '" + dmsIdentifier
-				+ "' could not download, decrypt, validate or insert data-set for project-identifier '"
-				+ projectIdentifier + "' in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND
-				+ "' in Task with id '" + startTaskId + "':\n" + "- status code: " + code + "\n" + "- error: " + error;
+		String message = "Could not download, decrypt, validate or insert data-set in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
+				+ "' at DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
+				+ "':\n" + "- status code: " + code + "\n" + "- error: " + error;
 
 		api.getMailService().send(subject, message);
 	}

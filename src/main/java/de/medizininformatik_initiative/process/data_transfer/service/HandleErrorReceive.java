@@ -36,9 +36,10 @@ public class HandleErrorReceive extends AbstractServiceDelegate
 
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
 		String message = "Could not download and insert new data-set in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' from organization '"
-				+ task.getRequester().getIdentifier().getValue() + "' in Task with id '" + task.getId() + "':\n"
-				+ "- status code: " + ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR + "\n" + "- error: "
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
+				+ "' from organization '" + task.getRequester().getIdentifier().getValue() + "' in Task with id '"
+				+ task.getId() + "':\n" + "- status code: "
+				+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR + "\n" + "- error: "
 				+ (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);

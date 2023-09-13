@@ -74,7 +74,7 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 			variables.updateTask(task);
 
-			sendMail(createdIds, sendingOrganization, projectIdentifier);
+			sendMail(task, createdIds, sendingOrganization, projectIdentifier);
 		}
 		catch (Exception exception)
 		{
@@ -116,17 +116,18 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		return idsOfCreatedResources;
 	}
 
-	private void sendMail(List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
+	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
 	{
 		String subject = "New data-set received in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE
 				+ "'";
-		StringBuilder message = new StringBuilder("New data-set has been stored for project-identifier '")
-				.append(projectIdentifier).append("' in process '")
-				.append(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE).append("' received from organization '")
-				.append(sendingOrganization).append("' and can be accessed using the following links:\n");
+		StringBuilder message = new StringBuilder("A new data-set has been stored in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
+				+ "' received from organization '" + sendingOrganization + "' for project-identifier '"
+				+ projectIdentifier + "' with status code '" + ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK
+				+ "' and can be accessed using the following links:\n");
 
 		for (IdType id : createdIds)
-			message.append("- ").append(id.getValue()).append("\n");
+			message.append(id.getValue()).append("\n");
 
 		api.getMailService().send(subject, message.toString());
 	}
