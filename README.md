@@ -2,6 +2,10 @@
 
 In this repository you will find the process to transfer data-sets of an approved data usage project from a DIC to a DMS.
 
+## Documentation
+
+The documentation of the process including the description, the deployment and configuration guides as well as instructions on how to start a process instance can be found in the [wiki](https://github.com/medizininformatik-initiative/mii-process-data-transfer/wiki).
+
 ## Development
 Branching follows the git-flow model, for the latest development version see branch [develop](https://github.com/medizininformatik-initiative/mii-process-data-transfer/tree/develop).
 
