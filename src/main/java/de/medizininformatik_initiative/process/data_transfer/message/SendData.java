@@ -81,13 +81,11 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 		Task task = variables.getStartTask();
 
 		String statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE;
-		if (exception instanceof WebApplicationException webApplicationException)
+		if (exception instanceof WebApplicationException webApplicationException
+				&& webApplicationException.getResponse() != null
+				&& webApplicationException.getResponse().getStatus() == Response.Status.FORBIDDEN.getStatusCode())
 		{
-			if (webApplicationException.getResponse() != null
-					&& webApplicationException.getResponse().getStatus() == Response.Status.FORBIDDEN.getStatusCode())
-			{
-				statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
-			}
+			statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
 		}
 
 		task.setStatus(Task.TaskStatus.FAILED);
