@@ -363,21 +363,21 @@
 								<fileset>
 									<directory>${testSetup.location}/docker/dic1/bpe/process</directory>
 									<includes>
-										<include>${project.artifactId}-${project.version}.jar</include>
+										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
 									<directory>${testSetup.location}/docker/dic2/bpe/process</directory>
 									<includes>
-										<include>${project.artifactId}-${project.version}.jar</include>
+										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
 									<directory>${testSetup.location}/docker/dms/bpe/process</directory>
 									<includes>
-										<include>${project.artifactId}-${project.version}.jar</include>
+										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
