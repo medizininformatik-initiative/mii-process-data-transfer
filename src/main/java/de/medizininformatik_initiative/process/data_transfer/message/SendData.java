@@ -18,7 +18,6 @@ import org.springframework.beans.factory.InitializingBean;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -55,15 +54,14 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE);
 		binaryComponent.setValue(new Reference().setType(ResourceType.Binary.name()).setReference(binaryId));
 
-		String projectIdentifier = variables.getString(
-				ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
+		String projectIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
 		Task.ParameterComponent projectIdentifierComponent = new Task.ParameterComponent();
 		projectIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
-		projectIdentifierComponent.setValue(
-				new Identifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
-						.setValue(projectIdentifier));
+		projectIdentifierComponent.setValue(new Identifier()
+				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
 		return Stream.of(binaryComponent, projectIdentifierComponent);
 	}

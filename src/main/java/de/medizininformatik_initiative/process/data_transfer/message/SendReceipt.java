@@ -13,7 +13,6 @@ import org.springframework.beans.factory.InitializingBean;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -56,16 +55,18 @@ public class SendReceipt extends AbstractTaskMessageSend implements Initializing
 
 	private Stream<Task.ParameterComponent> createReceiptError(Variables variables)
 	{
-		return statusGenerator.transformOutputToInputComponent(variables.getStartTask(),
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS).map(this::receiveToReceiptStatus);
+		return statusGenerator
+				.transformOutputToInputComponent(variables.getStartTask(),
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS)
+				.map(this::receiveToReceiptStatus);
 	}
 
 	private Task.ParameterComponent receiveToReceiptStatus(Task.ParameterComponent parameterComponent)
 	{
 		Type value = parameterComponent.getValue();
-		if (value instanceof Coding coding && ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR.equals(
-				coding.getCode()))
+		if (value instanceof Coding coding
+				&& ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR.equals(coding.getCode()))
 		{
 			coding.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR);
 		}
