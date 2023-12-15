@@ -1,31 +1,26 @@
-# This workflow will publish a Java project with Maven
-# For more information see: https://docs.github.com/en/free-pro-team@latest/actions/guides/publishing-java-packages-with-maven
-
 name: Java CI Publish with Maven
 
 on:
   pull_request:
     types: [closed]
     branches: [develop]
-  release:
-    types: [published]
 
 jobs:
   publish:
 
-    # Only run if releases are published or pull requests are merged,
-    # omit running if pull requests are closed without merging
-    if: github.event.pull_request.merged || github.event.action == 'published'
+    # Only run if pull requests are merged, omit running if pull requests are closed without merging
+    if: github.event.pull_request.merged
 
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: 'zulu'
           java-version: 17
+          cache: 'maven'
       - uses: s4u/maven-settings-action@v2.8.0
         with:
           servers: |
@@ -33,4 +28,4 @@ jobs:
       - name: Publish with Maven
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -B deploy --file pom.xml
+        run: mvn --batch-mode --fail-at-end clean deploy
