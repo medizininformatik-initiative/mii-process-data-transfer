@@ -21,7 +21,7 @@ jobs:
           distribution: 'zulu'
           java-version: 17
           cache: 'maven'
-      - uses: s4u/maven-settings-action@v2.8.0
+      - uses: s4u/maven-settings-action@7802f6aec16c9098b4798ad1f1d8ac75198194bd #3.0.0
         with:
           servers: |
             [ {"id": "github-mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
