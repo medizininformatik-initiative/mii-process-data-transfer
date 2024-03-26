@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_18azqkl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.0.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_18azqkl" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.15.1">
   <bpmn:process id="medizininformatik-initiativede_dataReceive" isExecutable="true" camunda:versionTag="#{version}">
     <bpmn:startEvent id="DataReceiveMessageStartEvent" name="start data receive process">
       <bpmn:outgoing>Flow_1gyqorb</bpmn:outgoing>
@@ -31,11 +31,11 @@
       <bpmn:errorEventDefinition id="ErrorEventDefinition_0pexd3k" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_0w8rnob" attachedToRef="DecryptData">
-      <bpmn:outgoing>Flow_1rx301b</bpmn:outgoing>
+      <bpmn:outgoing>Flow_1a3apuy</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_1e7fqdh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_1j53ayd" attachedToRef="validateData">
-      <bpmn:outgoing>Flow_1w37net</bpmn:outgoing>
+      <bpmn:outgoing>Flow_17wdowl</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_0w0leoh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_0r0huvp" attachedToRef="insertData">
@@ -44,8 +44,6 @@
     </bpmn:boundaryEvent>
     <bpmn:exclusiveGateway id="Gateway_1u8di90">
       <bpmn:incoming>Flow_1w6vljw</bpmn:incoming>
-      <bpmn:incoming>Flow_1rx301b</bpmn:incoming>
-      <bpmn:incoming>Flow_1w37net</bpmn:incoming>
       <bpmn:incoming>Flow_1ynmh47</bpmn:incoming>
       <bpmn:outgoing>Flow_1p2po17</bpmn:outgoing>
     </bpmn:exclusiveGateway>
@@ -55,8 +53,6 @@
       <bpmn:outgoing>Flow_0sa0z7s</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_1iwqqfr" sourceRef="Event_0k465ce" targetRef="handleErrorReceive" />
-    <bpmn:sequenceFlow id="Flow_1rx301b" sourceRef="Event_0w8rnob" targetRef="Gateway_1u8di90" />
-    <bpmn:sequenceFlow id="Flow_1w37net" sourceRef="Event_1j53ayd" targetRef="Gateway_1u8di90" />
     <bpmn:sequenceFlow id="Flow_1o874e3" sourceRef="Event_0r0huvp" targetRef="handleErrorReceive" />
     <bpmn:endEvent id="sendReceipt" name="send receipt">
       <bpmn:incoming>Flow_0sa0z7s</bpmn:incoming>
@@ -78,69 +74,18 @@
     <bpmn:serviceTask id="handleErrorReceive" name="handle error" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.HandleErrorReceive">
       <bpmn:incoming>Flow_1o874e3</bpmn:incoming>
       <bpmn:incoming>Flow_1iwqqfr</bpmn:incoming>
+      <bpmn:incoming>Flow_1a3apuy</bpmn:incoming>
+      <bpmn:incoming>Flow_17wdowl</bpmn:incoming>
       <bpmn:outgoing>Flow_1ynmh47</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_1ynmh47" sourceRef="handleErrorReceive" targetRef="Gateway_1u8di90" />
+    <bpmn:sequenceFlow id="Flow_1a3apuy" sourceRef="Event_0w8rnob" targetRef="handleErrorReceive" />
+    <bpmn:sequenceFlow id="Flow_17wdowl" sourceRef="Event_1j53ayd" targetRef="handleErrorReceive" />
   </bpmn:process>
   <bpmn:message id="Message_157qpi8" name="dataSend" />
   <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" errorCode="dataReceiveError" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataReceive">
-      <bpmndi:BPMNEdge id="Flow_1ynmh47_di" bpmnElement="Flow_1ynmh47">
-        <di:waypoint x="1050" y="220" />
-        <di:waypoint x="1120" y="220" />
-        <di:waypoint x="1120" y="142" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0sa0z7s_di" bpmnElement="Flow_0sa0z7s">
-        <di:waypoint x="1310" y="117" />
-        <di:waypoint x="1382" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1o874e3_di" bpmnElement="Flow_1o874e3">
-        <di:waypoint x="850" y="175" />
-        <di:waypoint x="850" y="220" />
-        <di:waypoint x="950" y="220" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1w37net_di" bpmnElement="Flow_1w37net">
-        <di:waypoint x="700" y="175" />
-        <di:waypoint x="700" y="220" />
-        <di:waypoint x="1120" y="220" />
-        <di:waypoint x="1120" y="142" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1rx301b_di" bpmnElement="Flow_1rx301b">
-        <di:waypoint x="540" y="175" />
-        <di:waypoint x="540" y="220" />
-        <di:waypoint x="1120" y="220" />
-        <di:waypoint x="1120" y="142" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1iwqqfr_di" bpmnElement="Flow_1iwqqfr">
-        <di:waypoint x="390" y="175" />
-        <di:waypoint x="390" y="220" />
-        <di:waypoint x="950" y="220" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1p2po17_di" bpmnElement="Flow_1p2po17">
-        <di:waypoint x="1145" y="117" />
-        <di:waypoint x="1210" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0j6v09z_di" bpmnElement="Flow_0j6v09z">
-        <di:waypoint x="700" y="117" />
-        <di:waypoint x="750" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1c3t0x1_di" bpmnElement="Flow_1c3t0x1">
-        <di:waypoint x="540" y="117" />
-        <di:waypoint x="600" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1w6vljw_di" bpmnElement="Flow_1w6vljw">
-        <di:waypoint x="850" y="117" />
-        <di:waypoint x="1095" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_064nbas_di" bpmnElement="Flow_064nbas">
-        <di:waypoint x="390" y="117" />
-        <di:waypoint x="440" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1gyqorb_di" bpmnElement="Flow_1gyqorb">
-        <di:waypoint x="215" y="117" />
-        <di:waypoint x="290" y="117" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="Event_0kx3ho7_di" bpmnElement="DataReceiveMessageStartEvent">
         <dc:Bounds x="179" y="99" width="36" height="36" />
         <bpmndi:BPMNLabel>
@@ -187,6 +132,59 @@
       <bpmndi:BPMNShape id="Event_03tuscl_di" bpmnElement="Event_0k465ce">
         <dc:Bounds x="372" y="139" width="36" height="36" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1gyqorb_di" bpmnElement="Flow_1gyqorb">
+        <di:waypoint x="215" y="117" />
+        <di:waypoint x="290" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_064nbas_di" bpmnElement="Flow_064nbas">
+        <di:waypoint x="390" y="117" />
+        <di:waypoint x="440" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1w6vljw_di" bpmnElement="Flow_1w6vljw">
+        <di:waypoint x="850" y="117" />
+        <di:waypoint x="1095" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1c3t0x1_di" bpmnElement="Flow_1c3t0x1">
+        <di:waypoint x="540" y="117" />
+        <di:waypoint x="600" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0j6v09z_di" bpmnElement="Flow_0j6v09z">
+        <di:waypoint x="700" y="117" />
+        <di:waypoint x="750" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1p2po17_di" bpmnElement="Flow_1p2po17">
+        <di:waypoint x="1145" y="117" />
+        <di:waypoint x="1210" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1iwqqfr_di" bpmnElement="Flow_1iwqqfr">
+        <di:waypoint x="390" y="175" />
+        <di:waypoint x="390" y="220" />
+        <di:waypoint x="950" y="220" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1o874e3_di" bpmnElement="Flow_1o874e3">
+        <di:waypoint x="850" y="175" />
+        <di:waypoint x="850" y="220" />
+        <di:waypoint x="950" y="220" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0sa0z7s_di" bpmnElement="Flow_0sa0z7s">
+        <di:waypoint x="1310" y="117" />
+        <di:waypoint x="1382" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ynmh47_di" bpmnElement="Flow_1ynmh47">
+        <di:waypoint x="1050" y="220" />
+        <di:waypoint x="1120" y="220" />
+        <di:waypoint x="1120" y="142" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1a3apuy_di" bpmnElement="Flow_1a3apuy">
+        <di:waypoint x="540" y="175" />
+        <di:waypoint x="540" y="220" />
+        <di:waypoint x="950" y="220" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17wdowl_di" bpmnElement="Flow_17wdowl">
+        <di:waypoint x="700" y="175" />
+        <di:waypoint x="700" y="220" />
+        <di:waypoint x="950" y="220" />
+      </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
 </bpmn:definitions>

@@ -114,7 +114,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		List<DocumentReference> documentReferences = fhirClient
 				.searchDocumentReferences(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier)
 				.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
-				.filter(r -> r instanceof DocumentReference).map(r -> ((DocumentReference) r)).toList();
+				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
 
 		if (documentReferences.size() < 1)
 			throw new IllegalArgumentException("Could not find any DocumentReference for project-identifier '"

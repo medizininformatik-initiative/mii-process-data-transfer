@@ -65,12 +65,10 @@ public class SendReceipt extends AbstractTaskMessageSend implements Initializing
 	private Task.ParameterComponent receiveToReceiptStatus(Task.ParameterComponent parameterComponent)
 	{
 		Type value = parameterComponent.getValue();
-		if (value instanceof Coding coding)
+		if (value instanceof Coding coding
+				&& ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR.equals(coding.getCode()))
 		{
-			if (ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR.equals(coding.getCode()))
-			{
-				coding.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR);
-			}
+			coding.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR);
 		}
 
 		return parameterComponent;
