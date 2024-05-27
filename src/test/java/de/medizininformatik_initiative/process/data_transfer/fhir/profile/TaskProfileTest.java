@@ -2,8 +2,8 @@ package de.medizininformatik_initiative.process.data_transfer.fhir.profile;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import org.hl7.fhir.r4.model.Identifier;
@@ -38,11 +38,11 @@ public class TaskProfileTest
 	@ClassRule
 	public static final ValidationSupportRule validationRule = new ValidationSupportRule(def.getResourceVersion(),
 			def.getResourceReleaseDate(),
-			Arrays.asList("dsf-task-base-1.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
+			List.of("dsf-task-base-1.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
 					"task-data-send.xml", "task-data-status.xml"),
-			Arrays.asList("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
+			List.of("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
 					"mii-cryptography.xml", "mii-data-set-status.xml"),
-			Arrays.asList("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
+			List.of("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
 					"mii-cryptography.xml", "mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
 
 	private final ResourceValidator resourceValidator = new ResourceValidatorImpl(validationRule.getFhirContext(),
