@@ -1,7 +1,6 @@
 package de.medizininformatik_initiative.process.data_transfer;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -72,9 +71,8 @@ public class DataTransferProcessPluginDefinition implements ProcessPluginDefinit
 
 		return Map.of( //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE, //
-				Arrays.asList(aReceive, cCrypto, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sSend, vCrypto, vDaSeStRe, vDaTr), //
+				List.of(aReceive, cCrypto, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sSend, vCrypto, vDaSeStRe, vDaTr), //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND, //
-				Arrays.asList(aSend, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe,
-						vDaTr));
+				List.of(aSend, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe, vDaTr));
 	}
 }
