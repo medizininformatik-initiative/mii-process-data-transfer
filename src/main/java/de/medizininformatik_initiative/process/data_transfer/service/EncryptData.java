@@ -118,7 +118,7 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 	{
 		List<DocumentReference> documentReferences = bundle.getEntry().stream()
 				.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof DocumentReference)
-				.map(r -> ((DocumentReference) r)).toList();
+				.map(r -> (DocumentReference) r).toList();
 
 		if (documentReferences.size() < 1)
 			throw new IllegalArgumentException("Could not find any DocumentReference in PublicKey Bundle");
@@ -132,7 +132,7 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 	private Binary getBinary(Bundle bundle)
 	{
 		List<Binary> binaries = bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
-				.filter(r -> r instanceof Binary).map(b -> ((Binary) b)).toList();
+				.filter(r -> r instanceof Binary).map(b -> (Binary) b).toList();
 
 		if (binaries.size() < 1)
 			throw new IllegalArgumentException("Could not find any Binary in PublicKey Bundle");

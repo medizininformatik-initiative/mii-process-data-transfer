@@ -1,7 +1,6 @@
 package de.medizininformatik_initiative.process.data_transfer;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -12,8 +11,8 @@ import dev.dsf.bpe.v1.ProcessPluginDefinition;
 
 public class DataTransferProcessPluginDefinition implements ProcessPluginDefinition
 {
-	public static final String VERSION = "1.0.0.0";
-	public static final LocalDate RELEASE_DATE = LocalDate.of(2023, 12, 14);
+	public static final String VERSION = "1.0.1.0";
+	public static final LocalDate RELEASE_DATE = LocalDate.of(2024, 6, 11);
 
 	@Override
 	public String getName()
@@ -72,9 +71,8 @@ public class DataTransferProcessPluginDefinition implements ProcessPluginDefinit
 
 		return Map.of( //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE, //
-				Arrays.asList(aReceive, cCrypto, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sSend, vCrypto, vDaSeStRe, vDaTr), //
+				List.of(aReceive, cCrypto, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sSend, vCrypto, vDaSeStRe, vDaTr), //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND, //
-				Arrays.asList(aSend, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe,
-						vDaTr));
+				List.of(aSend, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe, vDaTr));
 	}
 }
