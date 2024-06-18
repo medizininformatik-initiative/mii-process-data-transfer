@@ -10,8 +10,9 @@ on:
 jobs:
   publish:
 
-    # Only run if pull requests are merged, omit running if pull requests are closed without merging
-    if: github.event.pull_request.merged
+    # Only run if releases are published or pull requests are merged,
+    # omit running if pull requests are closed without merging
+    if: github.event.pull_request.merged || github.event.action == 'published'
 
     runs-on: ubuntu-latest
 
