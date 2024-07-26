@@ -88,7 +88,7 @@ public class DmsFhirClientConfig
 	private boolean fhirStoreHapiClientVerbose;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the server containing the FHIR data can only be reached through a proxy", example = "http://proxy.foo:8080")
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the server containing the FHIR data can only be reached through a proxy", recommendation = "Use default DSF proxy configuration if possible", example = "http://proxy.foo:8080")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.proxy.url:#{null}}")
 	private String fhirStoreProxyUrl;
 
@@ -133,7 +133,7 @@ public class DmsFhirClientConfig
 	private String fhirStoreOAuth2TrustStore;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy", example = "http://proxy.foo:8080")
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy", recommendation = "Use default DSF proxy configuration if possible", example = "http://proxy.foo:8080")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.url:#{null}}")
 	private String fhirStoreOAuth2ProxyUrl;
 
