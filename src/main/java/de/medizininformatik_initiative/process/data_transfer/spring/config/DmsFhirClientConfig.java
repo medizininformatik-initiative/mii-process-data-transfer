@@ -11,14 +11,21 @@ import org.springframework.context.annotation.Configuration;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
 import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
+import de.medizininformatik_initiative.processes.common.fhir.client.token.OAuth2TokenClient;
+import de.medizininformatik_initiative.processes.common.fhir.client.token.OAuth2TokenProvider;
+import de.medizininformatik_initiative.processes.common.fhir.client.token.TokenClient;
+import de.medizininformatik_initiative.processes.common.fhir.client.token.TokenProvider;
+import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.documentation.ProcessDocumentation;
 
 @Configuration
 public class DmsFhirClientConfig
 {
-	// TODO: use default proxy config from DSF
 	@Autowired
 	private FhirContext fhirContext;
+
+	@Autowired
+	private ProcessPluginApi api;
 
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The base address of the DMS FHIR server to read/store FHIR resources", example = "http://foo.bar/fhir")
@@ -96,6 +103,51 @@ public class DmsFhirClientConfig
 	private String fhirStoreProxyPassword;
 
 	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "The url of the oidc provider to request access tokens (token endpoint)", example = "http://foo.baz/realms/fhir-realm/protocol/openid-connect/token")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.issuer.url:#{null}}")
+	private String fhirStoreOAuth2IssuerUrl;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Identifier of the client (username) used for authentication when accessing the oidc provider token endpoint")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.client.id:#{null}}")
+	private String fhirStoreOAuth2ClientId;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Secret of the client (password) used for authentication when accessing the oidc provider token endpoint", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.client.password:#{null}}")
+	private String fhirStoreOAuth2ClientSecret;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "The timeout in milliseconds until a connection is established between the client and the oidc provider", recommendation = "Change default value only if timeout exceptions occur")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.timeout.connect:20000}")
+	private int fhirStoreOAuth2ConnectTimeout;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Maximum period of inactivity in milliseconds between two consecutive data packets of the client and the oidc provider", recommendation = "Change default value only if timeout exceptions occur")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.timeout.socket:60000}")
+	private int fhirStoreOAuth2SocketTimeout;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "PEM encoded file with one or more trusted root certificate to validate the oidc provider server certificate when connecting via https", recommendation = "Use docker secret file to configure", example = "/run/secrets/hospital_ca.pem")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.trust.certificates:#{null}}")
+	private String fhirStoreOAuth2TrustStore;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy", example = "http://proxy.foo:8080")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.url:#{null}}")
+	private String fhirStoreOAuth2ProxyUrl;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy username, set if the oidc provider can only be reached through a proxy which requests authentication")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.username:#{null}}")
+	private String fhirStoreOAuth2ProxyUsername;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy password, set if the oidc provider can only be reached through a proxy which requests authentication", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.password:#{null}}")
+	private String fhirStoreOAuth2ProxyPassword;
+
+	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "To enable debug logging of FHIR resources set to `true`")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.dataLoggingEnabled:false}")
 	private boolean fhirDataLoggingEnabled;
@@ -109,10 +161,46 @@ public class DmsFhirClientConfig
 		Path certificatePath = checkExists(fhirStoreCertificate);
 		Path privateKeyPath = checkExists(fhirStorePrivateKey);
 
+		String proxyUrl = fhirStoreProxyUrl, proxyUsername = fhirStoreProxyUsername,
+				proxyPassword = fhirStoreProxyPassword;
+		if (proxyUrl == null && api.getProxyConfig().isEnabled()
+				&& !api.getProxyConfig().isNoProxyUrl(fhirStoreBaseUrl))
+		{
+			proxyUrl = api.getProxyConfig().getUrl();
+			proxyUsername = api.getProxyConfig().getUsername();
+			proxyPassword = api.getProxyConfig().getPassword() == null ? null
+					: new String(api.getProxyConfig().getPassword());
+		}
+
 		return new FhirClientFactory(trustStorePath, certificatePath, privateKeyPath, fhirStorePrivateKeyPassword,
 				fhirStoreConnectTimeout, fhirStoreSocketTimeout, fhirStoreConnectionRequestTimeout, fhirStoreBaseUrl,
-				fhirStoreUsername, fhirStorePassword, fhirStoreBearerToken, fhirStoreProxyUrl, fhirStoreProxyUsername,
-				fhirStoreProxyPassword, fhirStoreHapiClientVerbose, fhirContext, localIdentifierValue, dataLogger());
+				fhirStoreUsername, fhirStorePassword, fhirStoreBearerToken, tokenProvider(), proxyUrl, proxyUsername,
+				proxyPassword, fhirStoreHapiClientVerbose, fhirContext, localIdentifierValue, dataLogger());
+	}
+
+	public TokenProvider tokenProvider()
+	{
+		return new OAuth2TokenProvider(tokenClient());
+	}
+
+	public TokenClient tokenClient()
+	{
+		Path trustStoreOAuth2Path = checkExists(fhirStoreOAuth2TrustStore);
+
+		String proxyUrl = fhirStoreOAuth2ProxyUrl, proxyUsername = fhirStoreOAuth2ProxyUsername,
+				proxyPassword = fhirStoreOAuth2ProxyPassword;
+		if (proxyUrl == null && api.getProxyConfig().isEnabled()
+				&& !api.getProxyConfig().isNoProxyUrl(fhirStoreOAuth2IssuerUrl))
+		{
+			proxyUrl = api.getProxyConfig().getUrl();
+			proxyUsername = api.getProxyConfig().getUsername();
+			proxyPassword = api.getProxyConfig().getPassword() == null ? null
+					: new String(api.getProxyConfig().getPassword());
+		}
+
+		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2ClientId, fhirStoreOAuth2ClientSecret,
+				fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout, trustStoreOAuth2Path, proxyUrl,
+				proxyUsername, proxyPassword);
 	}
 
 	public DataLogger dataLogger()
