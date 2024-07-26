@@ -104,47 +104,47 @@ public class DmsFhirClientConfig
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The url of the oidc provider to request access tokens (token endpoint)", example = "http://foo.baz/realms/fhir-realm/protocol/openid-connect/token")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.issuer.url:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.issuer.url:#{null}}")
 	private String fhirStoreOAuth2IssuerUrl;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Identifier of the client (username) used for authentication when accessing the oidc provider token endpoint")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.client.id:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.client.id:#{null}}")
 	private String fhirStoreOAuth2ClientId;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Secret of the client (password) used for authentication when accessing the oidc provider token endpoint", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.client.password:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.client.password:#{null}}")
 	private String fhirStoreOAuth2ClientSecret;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The timeout in milliseconds until a connection is established between the client and the oidc provider", recommendation = "Change default value only if timeout exceptions occur")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.timeout.connect:20000}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.timeout.connect:20000}")
 	private int fhirStoreOAuth2ConnectTimeout;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Maximum period of inactivity in milliseconds between two consecutive data packets of the client and the oidc provider", recommendation = "Change default value only if timeout exceptions occur")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.timeout.socket:60000}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.timeout.socket:60000}")
 	private int fhirStoreOAuth2SocketTimeout;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "PEM encoded file with one or more trusted root certificate to validate the oidc provider server certificate when connecting via https", recommendation = "Use docker secret file to configure", example = "/run/secrets/hospital_ca.pem")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.trust.certificates:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.trust.certificates:#{null}}")
 	private String fhirStoreOAuth2TrustStore;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy", example = "http://proxy.foo:8080")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.url:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.url:#{null}}")
 	private String fhirStoreOAuth2ProxyUrl;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Proxy username, set if the oidc provider can only be reached through a proxy which requests authentication")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.username:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.username:#{null}}")
 	private String fhirStoreOAuth2ProxyUsername;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Proxy password, set if the oidc provider can only be reached through a proxy which requests authentication", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.proxy.password:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.password:#{null}}")
 	private String fhirStoreOAuth2ProxyPassword;
 
 	@ProcessDocumentation(processNames = {
