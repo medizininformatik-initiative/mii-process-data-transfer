@@ -133,17 +133,17 @@ public class DmsFhirClientConfig
 	private String fhirStoreOAuth2TrustStore;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy", recommendation = "Use default DSF proxy configuration if possible", example = "http://proxy.foo:8080")
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy location, set if the oidc provider can only be reached through a proxy, uses value from DEV_DSF_PROXY_URL if not set", example = "http://proxy.foo:8080")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.url:#{null}}")
 	private String fhirStoreOAuth2ProxyUrl;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Proxy username, set if the oidc provider can only be reached through a proxy which requests authentication")
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy username, set if the oidc provider can only be reached through a proxy which requests authentication, uses value from DEV_DSF_PROXY_USERNAME if not set")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.username:#{null}}")
 	private String fhirStoreOAuth2ProxyUsername;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Proxy password, set if the oidc provider can only be reached through a proxy which requests authentication", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
+			"medizininformatik-initiativede_dataReceive" }, description = "Proxy password, set if the oidc provider can only be reached through a proxy which requests authentication, uses value from DEV_DSF_PROXY_PASSWORD if not set", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.password:#{null}}")
 	private String fhirStoreOAuth2ProxyPassword;
 
