@@ -88,17 +88,17 @@ public class DicFhirClientConfig
 	private boolean fhirStoreHapiClientVerbose;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "Proxy location, set if the server containing the FHIR data can only be reached through a proxy", recommendation = "Use default DSF proxy configuration if possible", example = "http://proxy.foo:8080")
+			"medizininformatik-initiativede_dataSend" }, description = "Proxy location, set if the server containing the FHIR data can only be reached through a proxy, uses value from DEV_DSF_PROXY_URL if not set", example = "http://proxy.foo:8080")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.proxy.url:#{null}}")
 	private String fhirStoreProxyUrl;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "Proxy username, set if the server containing the FHIR data can only be reached through a proxy which requests authentication")
+			"medizininformatik-initiativede_dataSend" }, description = "Proxy username, set if the server containing the FHIR data can only be reached through a proxy which requests authentication, uses value from DEV_DSF_PROXY_USERNAME if not set")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.proxy.username:#{null}}")
 	private String fhirStoreProxyUsername;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "Proxy password, set if the server containing the FHIR data can only be reached through a proxy which requests authentication", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
+			"medizininformatik-initiativede_dataSend" }, description = "Proxy password, set if the server containing the FHIR data can only be reached through a proxy which requests authentication, uses value from DEV_DSF_PROXY_PASSWORD if not set", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.proxy.password:#{null}}")
 	private String fhirStoreProxyPassword;
 
