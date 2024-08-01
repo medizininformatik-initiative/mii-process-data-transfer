@@ -11,7 +11,7 @@ import dev.dsf.bpe.v1.ProcessPluginDefinition;
 
 public class DataTransferProcessPluginDefinition implements ProcessPluginDefinition
 {
-	public static final String VERSION = "1.0.3.0";
+	public static final String VERSION = "1.0.2.1";
 	public static final LocalDate RELEASE_DATE = LocalDate.of(2024, 8, 1);
 
 	@Override
