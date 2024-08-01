@@ -6,7 +6,7 @@
 
 	<groupId>de.medizininformatik-initiative</groupId>
 	<artifactId>mii-process-data-transfer</artifactId>
-	<version>1.0.2.0</version>
+	<version>1.0.2.1</version>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -45,7 +45,7 @@
 		<dependency>
 			<groupId>de.medizininformatik-initiative</groupId>
 			<artifactId>mii-processes-common</artifactId>
-			<version>1.0.2.0</version>
+			<version>1.0.2.1</version>
 		</dependency>
 
 		<dependency>
