@@ -8,7 +8,9 @@ import java.util.Objects;
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
@@ -23,6 +25,7 @@ import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
+import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
 
 public class InsertData extends AbstractServiceDelegate implements InitializingBean
@@ -66,7 +69,8 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 
 		try
 		{
-			List<IdType> createdIds = storeData(variables, fhirClient, bundle, sendingOrganization, projectIdentifier);
+			List<IdType> createdIds = storeData(variables, fhirClient, bundle, sendingOrganization, projectIdentifier,
+					task);
 
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
@@ -100,9 +104,11 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 	}
 
 	private List<IdType> storeData(Variables variables, FhirClient fhirClient, Bundle bundle,
-			String sendingOrganization, String projectIdentifier)
+			String sendingOrganization, String projectIdentifier, Task task)
 	{
-		Bundle stored = fhirClient.executeTransaction(bundle);
+		Bundle transactionBundle = checkAndAdaptBundleForExistingData(fhirClient, bundle, sendingOrganization,
+				projectIdentifier, task);
+		Bundle stored = fhirClient.executeTransaction(transactionBundle);
 
 		List<IdType> idsOfCreatedResources = stored.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResponse)
 				.map(Bundle.BundleEntryComponent::getResponse).map(Bundle.BundleEntryResponseComponent::getLocation)
@@ -114,6 +120,48 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		idsOfCreatedResources.forEach(id -> toLogMessage(id, sendingOrganization, projectIdentifier));
 
 		return idsOfCreatedResources;
+	}
+
+	private Bundle checkAndAdaptBundleForExistingData(FhirClient fhirClient, Bundle bundle, String sendingOrganization,
+			String projectIdentifier, Task task)
+	{
+		Bundle searchResult = fhirClient.getGenericFhirClient().search().forResource(DocumentReference.class)
+				.where(DocumentReference.IDENTIFIER.exactly()
+						.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
+				.and(DocumentReference.AUTHOR.hasChainedProperty(Organization.IDENTIFIER.exactly()
+						.systemAndCode(NamingSystems.OrganizationIdentifier.SID, sendingOrganization)))
+				.returnBundle(Bundle.class).execute();
+
+		List<DocumentReference> existingDocumentReferences = searchResult.getEntry().stream()
+				.filter(Bundle.BundleEntryComponent::hasResource).map(Bundle.BundleEntryComponent::getResource)
+				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
+
+		if (existingDocumentReferences.size() < 1)
+			return bundle;
+
+		if (existingDocumentReferences.size() > 1)
+			logger.warn(
+					"Found more than one DocumentReference for project-identifier '{}' authored by '{}', using the first",
+					projectIdentifier, sendingOrganization);
+
+		DocumentReference existingDocumentReference = existingDocumentReferences.get(0);
+		String existingDocumentReferenceId = existingDocumentReference.getIdElement().getIdPart();
+
+		logger.info(
+				"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
+				projectIdentifier, sendingOrganization, fhirClient.getFhirBaseUrl(), task.getId());
+
+		bundle.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResource)
+				.filter(e -> e.getResource() instanceof DocumentReference)
+				.filter(Bundle.BundleEntryComponent::hasRequest).filter(Bundle.BundleEntryComponent::hasResource)
+				.forEach(e ->
+				{
+					e.getRequest().setMethod(Bundle.HTTPVerb.PUT)
+							.setUrl(ResourceType.DocumentReference.name() + "/" + existingDocumentReferenceId);
+					e.getResource().setId(existingDocumentReferenceId);
+				});
+
+		return bundle;
 	}
 
 	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
