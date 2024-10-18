@@ -69,8 +69,7 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 
 		try
 		{
-			List<IdType> createdIds = storeData(variables, fhirClient, bundle, sendingOrganization, projectIdentifier,
-					task);
+			List<IdType> createdIds = storeData(fhirClient, bundle, sendingOrganization, projectIdentifier, variables);
 
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
@@ -103,11 +102,11 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		}
 	}
 
-	private List<IdType> storeData(Variables variables, FhirClient fhirClient, Bundle bundle,
-			String sendingOrganization, String projectIdentifier, Task task)
+	private List<IdType> storeData(FhirClient fhirClient, Bundle bundle, String sendingOrganization,
+			String projectIdentifier, Variables variables)
 	{
 		Bundle transactionBundle = checkAndAdaptBundleForExistingData(fhirClient, bundle, sendingOrganization,
-				projectIdentifier, task);
+				projectIdentifier, variables.getStartTask());
 		Bundle stored = fhirClient.executeTransaction(transactionBundle);
 
 		List<IdType> idsOfCreatedResources = stored.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResponse)
