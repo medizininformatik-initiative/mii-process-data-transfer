@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -36,17 +37,31 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 	@Override
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
+		Task task = variables.getStartTask();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
-		Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
 
 		logger.info("Validating data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
 				dmsIdentifier, projectIdentifier, variables.getStartTask().getId());
 
-		String mimeType = mimeTypeHelper.getMimeType(resource);
-		byte[] data = mimeTypeHelper.getData(resource);
+		try
+		{
+			Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
 
-		mimeTypeHelper.validate(data, mimeType);
+			String mimeType = mimeTypeHelper.getMimeType(resource);
+			byte[] data = mimeTypeHelper.getData(resource);
+
+			mimeTypeHelper.validate(data, mimeType);
+		}
+		catch (Exception exception)
+		{
+			logger.warn(
+					"Could not validate data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
+					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
+
+			String error = "Validate data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
+		}
 	}
 }

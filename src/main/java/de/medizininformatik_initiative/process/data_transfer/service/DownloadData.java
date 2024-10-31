@@ -75,15 +75,14 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Download data-set failed"));
 			variables.updateTask(task);
 
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,
-					"Download data-set failed");
-
 			logger.warn(
 					"Could not download data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dataSetReference.getValue(), sendingOrganization, projectIdentifier, task.getId(),
 					exception.getMessage());
-			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR,
-					"Download data-set - " + exception.getMessage());
+
+			String error = "Download data-set failed - " + exception.getMessage();
+			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
+			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}
 

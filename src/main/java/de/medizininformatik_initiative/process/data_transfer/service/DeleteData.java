@@ -47,9 +47,9 @@ public class DeleteData extends AbstractServiceDelegate
 			logger.warn(
 					"Could not permanently delete data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
-			throw new RuntimeException("Could not permanently delete data-set for DMS '" + dmsIdentifier
-					+ "' and project-identifier '" + projectIdentifier + "' referenced in Task with id '" + task.getId()
-					+ "' - " + exception.getMessage(), exception);
+
+			String error = "Permanently deleting encrypted transferable data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
 		}
 	}
 
