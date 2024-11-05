@@ -31,7 +31,7 @@
 					</extension>
 				</extension>
 				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
-				<code value="REMOTE_ROLE" />
+				<code value="LOCAL_ROLE" />
 			</valueCoding>
 		</extension>
 		<extension url="requester">
@@ -51,7 +51,7 @@
 					</extension>
 				</extension>
 				<system value="http://dsf.dev/fhir/CodeSystem/process-authorization" />
-				<code value="LOCAL_ROLE" />
+				<code value="REMOTE_ROLE" />
 			</valueCoding>
 		</extension>
 		<extension url="recipient">
