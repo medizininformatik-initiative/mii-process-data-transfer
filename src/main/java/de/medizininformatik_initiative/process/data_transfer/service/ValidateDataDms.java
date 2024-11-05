@@ -131,17 +131,16 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Validate data-set failed"));
 			variables.updateTask(task);
 
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,
-					"Validate data-set failed");
-
 			logger.warn(
 					"Could not validate data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
 					task.getRequester().getIdentifier().getValue(),
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER), task.getId(),
 					exception.getMessage());
-			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR,
-					"Validate data-set - " + exception.getMessage());
+
+			String error = "Validate data-set failed - " + exception.getMessage();
+			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
+			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}
 }

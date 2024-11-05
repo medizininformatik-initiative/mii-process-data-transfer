@@ -35,11 +35,11 @@ public class StoreData extends AbstractServiceDelegate
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
 		Task task = variables.getStartTask();
-		byte[] bundleEncrypted = variables
-				.getByteArray(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
+		byte[] bundleEncrypted = variables
+				.getByteArray(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED);
 
 		logger.info(
 				"Storing encrypted transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
@@ -60,9 +60,9 @@ public class StoreData extends AbstractServiceDelegate
 			logger.warn(
 					"Could not store data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
-			throw new RuntimeException("Could not store data-set for DMS '" + dmsIdentifier
-					+ "' and project-identifier '" + projectIdentifier + "' referenced in Task with id '" + task.getId()
-					+ "' - " + exception.getMessage(), exception);
+
+			String error = "Store encrypted transferable data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
 		}
 	}
 

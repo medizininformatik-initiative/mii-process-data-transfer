@@ -109,8 +109,8 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		{
 			String errorLog = error.isBlank() ? "" : " - " + error;
 			logger.warn(
-					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'{}",
-					task.getId(), projectIdentifier, dmsIdentifier, code, errorLog);
+					"Could not deliver encrypted transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
+					dmsIdentifier, projectIdentifier, task.getId(), errorLog);
 
 			sendErrorMail(task, projectIdentifier, dmsIdentifier, code, error);
 		}
