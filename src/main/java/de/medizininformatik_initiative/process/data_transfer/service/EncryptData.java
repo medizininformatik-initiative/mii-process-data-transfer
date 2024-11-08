@@ -56,9 +56,6 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
-		Bundle toEncrypt = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
-		String localOrganizationIdentifier = api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
-				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
 
 		logger.info(
 				"Encrypting transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
@@ -66,6 +63,10 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 
 		try
 		{
+			Bundle toEncrypt = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
+			String localOrganizationIdentifier = api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
+					.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
+
 			PublicKey publicKey = readPublicKey(dmsIdentifier);
 			byte[] encrypted = encrypt(publicKey, toEncrypt, localOrganizationIdentifier, dmsIdentifier);
 
@@ -76,9 +77,9 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 			logger.warn(
 					"Could not encrypt data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
-			throw new RuntimeException("Could not encrypt data-set for DMS '" + dmsIdentifier
-					+ "' and project-identifier '" + projectIdentifier + "' referenced in Task with id '" + task.getId()
-					+ "' - " + exception.getMessage(), exception);
+
+			String error = "Encrypt transferable data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
 		}
 	}
 

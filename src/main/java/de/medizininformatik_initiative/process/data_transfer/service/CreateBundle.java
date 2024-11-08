@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
@@ -48,6 +49,7 @@ public class CreateBundle extends AbstractServiceDelegate implements Initializin
 	@Override
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
+		Task task = variables.getStartTask();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
@@ -56,14 +58,26 @@ public class CreateBundle extends AbstractServiceDelegate implements Initializin
 				"Creating transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
 				dmsIdentifier, projectIdentifier, variables.getStartTask().getId());
 
-		DocumentReference documentReference = variables
-				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DOCUMENT_REFERENCE);
-		Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
-		Bundle bundle = createTransactionBundle(variables, projectIdentifier, documentReference, resource);
+		try
+		{
+			DocumentReference documentReference = variables
+					.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DOCUMENT_REFERENCE);
+			Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
 
-		dataLogger.logResource("Created Transfer Bundle", bundle);
+			Bundle bundle = createTransactionBundle(variables, projectIdentifier, documentReference, resource);
+			dataLogger.logResource("Created Transfer Bundle", bundle);
 
-		variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET, bundle);
+			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET, bundle);
+		}
+		catch (Exception exception)
+		{
+			logger.warn(
+					"Could not create transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
+					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
+
+			String error = "Create transferable data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
+		}
 	}
 
 	private Bundle createTransactionBundle(Variables variables, String projectIdentifier,

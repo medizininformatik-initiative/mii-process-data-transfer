@@ -25,9 +25,12 @@ public class HandleErrorReceive extends AbstractServiceDelegate
 		String error = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE);
 
 		sendMail(task, projectIdentifier, error);
+
+		task.setStatus(Task.TaskStatus.FAILED);
 		api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
 				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
 				.update(task);
+		variables.updateTask(task);
 	}
 
 	private void sendMail(Task task, String projectIdentifier, String error)

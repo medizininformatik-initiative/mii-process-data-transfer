@@ -72,10 +72,9 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 					"Could not read data-set on FHIR server with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					fhirClient.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId(),
 					exception.getMessage());
-			throw new RuntimeException(
-					"Could not read data-set on FHIR server with baseUrl '" + fhirClient.getFhirBaseUrl()
-							+ "' for DMS '" + dmsIdentifier + "' and project-identifier '" + projectIdentifier
-							+ "' referenced in Task with id '" + task.getId() + "' - " + exception.getMessage());
+
+			String error = "Read data-set failed - " + exception.getMessage();
+			throw new RuntimeException(error, exception);
 		}
 	}
 

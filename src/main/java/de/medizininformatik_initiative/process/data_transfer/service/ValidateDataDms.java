@@ -18,9 +18,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.mimetype.MimeTypeHelper;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import de.medizininformatik_initiative.processes.common.util.MimeTypeHelper;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.variables.Variables;
@@ -131,17 +131,16 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Validate data-set failed"));
 			variables.updateTask(task);
 
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE,
-					"Validate data-set failed");
-
 			logger.warn(
 					"Could not validate data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
 					task.getRequester().getIdentifier().getValue(),
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER), task.getId(),
 					exception.getMessage());
-			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR,
-					"Validate data-set - " + exception.getMessage());
+
+			String error = "Validate data-set failed - " + exception.getMessage();
+			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
+			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}
 }
