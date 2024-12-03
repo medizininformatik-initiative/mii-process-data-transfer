@@ -92,7 +92,6 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 					exception.getMessage());
 
 			String error = "Decrypt data-set failed - " + exception.getMessage();
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
 			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}

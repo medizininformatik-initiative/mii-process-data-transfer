@@ -139,7 +139,6 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 					exception.getMessage());
 
 			String error = "Validate data-set failed - " + exception.getMessage();
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
 			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}

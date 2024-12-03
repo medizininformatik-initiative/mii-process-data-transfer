@@ -28,19 +28,19 @@
     <bpmn:sequenceFlow id="Flow_0j6v09z" sourceRef="validateData" targetRef="insertData" />
     <bpmn:boundaryEvent id="Event_0k465ce" attachedToRef="DownloadDataFromDic">
       <bpmn:outgoing>Flow_1iwqqfr</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_0pexd3k" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0pexd3k" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_0w8rnob" attachedToRef="DecryptData">
       <bpmn:outgoing>Flow_1a3apuy</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_1e7fqdh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_1e7fqdh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_1j53ayd" attachedToRef="validateData">
       <bpmn:outgoing>Flow_17wdowl</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_0w0leoh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0w0leoh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:boundaryEvent id="Event_0r0huvp" attachedToRef="insertData">
       <bpmn:outgoing>Flow_1o874e3</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_1ytpfz4" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" />
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_1ytpfz4" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:exclusiveGateway id="Gateway_1u8di90">
       <bpmn:incoming>Flow_1w6vljw</bpmn:incoming>
