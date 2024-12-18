@@ -34,7 +34,7 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 {
 	private static final Logger logger = LoggerFactory.getLogger(EncryptData.class);
 
-	private KeyProvider keyProvider;
+	private final KeyProvider keyProvider;
 
 	public EncryptData(ProcessPluginApi api, KeyProvider keyProvider)
 	{
