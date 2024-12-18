@@ -94,9 +94,6 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Send data-set failed"));
 		variables.updateTask(task);
 
-		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE,
-				"Send data-set failed");
-
 		logger.warn(
 				"Could not send data-set with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
