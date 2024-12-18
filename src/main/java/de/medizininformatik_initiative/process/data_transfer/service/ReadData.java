@@ -32,12 +32,8 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 {
 	private static final Logger logger = LoggerFactory.getLogger(ReadData.class);
 
-	private static class DataResource
+	private record DataResource(Resource resource, InputStream stream, String mimetype)
 	{
-		private final Resource resource;
-		private final InputStream stream;
-		private final String mimetype;
-
 		public static DataResource of(Resource resource)
 		{
 			return new DataResource(resource, null, null);
@@ -46,13 +42,6 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		public static DataResource of(InputStream stream, String mimeType)
 		{
 			return new DataResource(null, stream, mimeType);
-		}
-
-		private DataResource(Resource resource, InputStream stream, String mimetype)
-		{
-			this.resource = resource;
-			this.stream = stream;
-			this.mimetype = mimetype;
 		}
 
 		public boolean hasResource()
@@ -123,8 +112,10 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		// TODO handle stream directly and do not parse to resource
 		if (attachment.hasInputStream())
 			return new Binary().setData(attachment.stream.readAllBytes()).setContentType(attachment.mimetype);
-
-		return attachment.resource;
+		else if (attachment.hasResource())
+			return attachment.resource;
+		else
+			throw new RuntimeException("Binary not available as resource or stream");
 	}
 
 	private String getProjectIdentifier(Task task)
