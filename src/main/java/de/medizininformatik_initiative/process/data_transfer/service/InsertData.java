@@ -1,12 +1,16 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
-import static java.util.stream.Collectors.toList;
+import static org.hl7.fhir.r4.model.DocumentReference.ReferredDocumentStatus.FINAL;
+import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT;
 
+import java.io.ByteArrayInputStream;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
@@ -19,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.processes.common.fhir.client.FhirClient;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
@@ -33,13 +36,16 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 	private static final Logger logger = LoggerFactory.getLogger(InsertData.class);
 
 	private final FhirClientFactory fhirClientFactory;
+	private final boolean fhirBinaryStreamWriteEnabled;
 	private final DataSetStatusGenerator statusGenerator;
 
-	public InsertData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, DataSetStatusGenerator statusGenerator)
+	public InsertData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, boolean fhirBinaryStreamWriteEnabled,
+			DataSetStatusGenerator statusGenerator)
 	{
 		super(api);
 
 		this.fhirClientFactory = fhirClientFactory;
+		this.fhirBinaryStreamWriteEnabled = fhirBinaryStreamWriteEnabled;
 		this.statusGenerator = statusGenerator;
 	}
 
@@ -61,15 +67,13 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 		Bundle bundle = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
 
-		FhirClient fhirClient = fhirClientFactory.getFhirClient();
-
 		logger.info(
 				"Inserting data-set on FHIR server with baseUrl '{}' received from organization '{}' for project-identifier '{}' in Task with id '{}'",
-				fhirClient.getFhirBaseUrl(), sendingOrganization, projectIdentifier, task.getId());
+				fhirClientFactory.getFhirBaseUrl(), sendingOrganization, projectIdentifier, task.getId());
 
 		try
 		{
-			List<IdType> createdIds = storeData(fhirClient, bundle, sendingOrganization, projectIdentifier, variables);
+			List<IdType> createdIds = storeData(bundle, sendingOrganization, projectIdentifier, variables);
 
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
@@ -100,16 +104,18 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		}
 	}
 
-	private List<IdType> storeData(FhirClient fhirClient, Bundle bundle, String sendingOrganization,
-			String projectIdentifier, Variables variables)
+	private List<IdType> storeData(Bundle bundle, String sendingOrganization, String projectIdentifier,
+			Variables variables)
 	{
-		Bundle transactionBundle = checkAndAdaptBundleForExistingData(fhirClient, bundle, sendingOrganization,
-				projectIdentifier, variables.getStartTask());
-		Bundle stored = fhirClient.executeTransaction(transactionBundle);
+		Binary binary = bundle.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResource)
+				.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof Binary).map(r -> (Binary) r)
+				.findFirst().orElseThrow(() -> new RuntimeException("No binary supplied"));
 
-		List<IdType> idsOfCreatedResources = stored.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResponse)
-				.map(Bundle.BundleEntryComponent::getResponse).map(Bundle.BundleEntryResponseComponent::getLocation)
-				.map(IdType::new).map(id -> setIdBase(id, fhirClient)).collect(toList());
+		IdType binaryIdType = createBinary(binary);
+		IdType documentReferenceIdType = createOrUpdateDocumentReference(sendingOrganization, projectIdentifier,
+				binaryIdType, binary.getContentType(), variables.getStartTask());
+
+		List<IdType> idsOfCreatedResources = List.of(documentReferenceIdType, binaryIdType);
 
 		idsOfCreatedResources.stream().filter(i -> ResourceType.DocumentReference.name().equals(i.getResourceType()))
 				.forEach(i -> addOutputToStartTask(variables, i));
@@ -119,10 +125,20 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		return idsOfCreatedResources;
 	}
 
-	private Bundle checkAndAdaptBundleForExistingData(FhirClient fhirClient, Bundle bundle, String sendingOrganization,
-			String projectIdentifier, Task task)
+	private IdType createBinary(Binary binary)
 	{
-		Bundle searchResult = fhirClient.getGenericFhirClient().search().forResource(DocumentReference.class)
+		if (fhirBinaryStreamWriteEnabled)
+			return (IdType) fhirClientFactory.getBinaryStreamFhirClient()
+					.create(new ByteArrayInputStream(binary.getContent()), binary.getContentType()).getId();
+
+		return (IdType) fhirClientFactory.getStandardFhirClient().create(binary).getId();
+	}
+
+	private IdType createOrUpdateDocumentReference(String sendingOrganization, String projectIdentifier,
+			IdType binaryIdType, String mimeType, Task task)
+	{
+		Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
+				.forResource(DocumentReference.class)
 				.where(DocumentReference.IDENTIFIER.exactly()
 						.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
 				.and(DocumentReference.AUTHOR.hasChainedProperty(Organization.IDENTIFIER.exactly()
@@ -134,31 +150,53 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
 
 		if (existingDocumentReferences.size() < 1)
-			return bundle;
+		{
+			logger.info(
+					"DocumentReference for project-identifier '{}' authored by '{}' does not exist yet, creating a new one for data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
+					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
+			return createDocumentReference(sendingOrganization, projectIdentifier, binaryIdType, mimeType);
+		}
+		else
+		{
+			if (existingDocumentReferences.size() > 1)
+				logger.warn(
+						"Found more than one DocumentReference for project-identifier '{}' authored by '{}', using the first",
+						projectIdentifier, sendingOrganization);
 
-		if (existingDocumentReferences.size() > 1)
-			logger.warn(
-					"Found more than one DocumentReference for project-identifier '{}' authored by '{}', using the first",
-					projectIdentifier, sendingOrganization);
+			logger.info(
+					"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
+					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
 
-		DocumentReference existingDocumentReference = existingDocumentReferences.get(0);
-		String existingDocumentReferenceId = existingDocumentReference.getIdElement().getIdPart();
+			return updateDocumentReference(existingDocumentReferences.get(0), binaryIdType, mimeType);
+		}
+	}
 
-		logger.info(
-				"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
-				projectIdentifier, sendingOrganization, fhirClient.getFhirBaseUrl(), task.getId());
+	private IdType createDocumentReference(String sendingOrganization, String projectIdentifier, IdType binaryIdType,
+			String mimeType)
+	{
+		DocumentReference documentReference = new DocumentReference().setStatus(CURRENT).setDocStatus(FINAL);
+		documentReference.getMasterIdentifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
+				.setValue(projectIdentifier);
+		documentReference.addAuthor().setType(ResourceType.Organization.name())
+				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(sendingOrganization));
+		documentReference.setDate(new Date());
 
-		bundle.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResource)
-				.filter(e -> e.getResource() instanceof DocumentReference)
-				.filter(Bundle.BundleEntryComponent::hasRequest).filter(Bundle.BundleEntryComponent::hasResource)
-				.forEach(e ->
-				{
-					e.getRequest().setMethod(Bundle.HTTPVerb.PUT)
-							.setUrl(ResourceType.DocumentReference.name() + "/" + existingDocumentReferenceId);
-					e.getResource().setId(existingDocumentReferenceId);
-				});
+		documentReference.addContent().getAttachment().setUrl(binaryIdType.toUnqualified().getValue())
+				.setContentType(mimeType);
 
-		return bundle;
+		return setIdBase((IdType) fhirClientFactory.getStandardFhirClient().create(documentReference).getResource()
+				.getIdElement());
+	}
+
+	private IdType updateDocumentReference(DocumentReference documentReference, IdType binaryIdType, String mimeType)
+	{
+		documentReference.getContentFirstRep().getAttachment().setContentType(mimeType)
+				.setUrl(binaryIdType.toUnqualified().getValue());
+
+		fhirClientFactory.getStandardFhirClient().getGenericFhirClient().update().resource(documentReference)
+				.withId(documentReference.getIdElement().getIdPart()).execute();
+
+		return setIdBase(documentReference.getIdElement());
 	}
 
 	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
@@ -177,9 +215,9 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		api.getMailService().send(subject, message.toString());
 	}
 
-	private IdType setIdBase(IdType idType, FhirClient fhirClient)
+	private IdType setIdBase(IdType idType)
 	{
-		String fhirBaseUrl = fhirClient.getFhirBaseUrl();
+		String fhirBaseUrl = fhirClientFactory.getFhirBaseUrl();
 		return new IdType(fhirBaseUrl, idType.getResourceType(), idType.getIdPart(), idType.getVersionIdPart());
 	}
 
