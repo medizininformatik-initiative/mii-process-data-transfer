@@ -45,6 +45,16 @@ public class TransferDataConfig
 	@Autowired
 	private DmsFhirClientConfig dmsFhirClientConfig;
 
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "To enable stream processing when reading Binary resources set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.enabled:false}")
+	private boolean fhirBinaryStreamReadEnabled;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "To enable stream processing when writing Binary resources set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.binary.stream.write.enabled:false}")
+	private boolean fhirBinaryStreamWriteEnabled;
+
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS private-key as 4096 Bit RSA PEM encoded, not encrypted file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_private_key.pem")
 	@Value("${de.medizininformatik.initiative.dms.private.key:#{null}}")
@@ -99,7 +109,7 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ReadData readData()
 	{
-		return new ReadData(api, dicFhirClientConfig.fhirClientFactory());
+		return new ReadData(api, dicFhirClientConfig.fhirClientFactory(), fhirBinaryStreamReadEnabled);
 	}
 
 	@Bean
@@ -185,7 +195,8 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public InsertData insertData()
 	{
-		return new InsertData(api, dmsFhirClientConfig.fhirClientFactory(), dataSetStatusGenerator());
+		return new InsertData(api, dmsFhirClientConfig.fhirClientFactory(), fhirBinaryStreamWriteEnabled,
+				dataSetStatusGenerator());
 	}
 
 	@Bean

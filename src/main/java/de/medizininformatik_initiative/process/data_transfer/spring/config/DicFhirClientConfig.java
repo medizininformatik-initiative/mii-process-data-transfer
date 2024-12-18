@@ -175,7 +175,7 @@ public class DicFhirClientConfig
 		return new FhirClientFactory(trustStorePath, certificatePath, privateKeyPath, fhirStorePrivateKeyPassword,
 				fhirStoreConnectTimeout, fhirStoreSocketTimeout, fhirStoreConnectionRequestTimeout, fhirStoreBaseUrl,
 				fhirStoreUsername, fhirStorePassword, fhirStoreBearerToken, tokenProvider(), proxyUrl, proxyUsername,
-				proxyPassword, fhirStoreHapiClientVerbose, fhirContext, localIdentifierValue, dataLogger());
+				proxyPassword, fhirStoreHapiClientVerbose, 5, fhirContext, localIdentifierValue, dataLogger());
 	}
 
 	public TokenProvider tokenProvider()
