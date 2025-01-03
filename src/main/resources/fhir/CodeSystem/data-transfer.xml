@@ -32,14 +32,9 @@
 		<definition value="Project identifier for which a data-set should be transmitted" />
 	</concept>
 	<concept>
-		<code value="data-set-reference" />
-		<display value="Data-set Reference" />
-		<definition value="Reference to a Binary data-set on a DSF FHIR server" />
-	</concept>
-	<concept>
 		<code value="document-reference-location" />
 		<display value="Document Reference Location" />
-		<definition value="Canonical location of a DocumentReference on a FHIR store" />
+		<definition value="Canonical location of a DocumentReference on a FHIR server" />
 	</concept>
 	<concept>
 		<code value="data-set-status" />

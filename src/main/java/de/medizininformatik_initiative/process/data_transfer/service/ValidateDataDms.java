@@ -1,16 +1,10 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
-import static org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION;
-
 import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.DocumentReference;
-import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
@@ -56,71 +50,16 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
-		Bundle bundle = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
+		List<Resource> resources = variables
+				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
 
 		logger.info(
-				"Validating decrypted data-set from organization '{}' and project-identifier '{}' in Task with id '{}'",
+				"Validating data-set from organization '{}' and project-identifier '{}' referenced in Task with id '{}'",
 				sendingOrganization, projectIdentifier, task.getId());
 
 		try
 		{
-			Bundle.BundleType type = bundle.getType();
-			if (!TRANSACTION.equals(type))
-			{
-				throw new RuntimeException("Bundle is not of type Transaction (" + type + ")");
-			}
-
-			List<Bundle.BundleEntryComponent> entries = bundle.getEntry();
-
-			int countE = entries.size();
-			if (countE != 2)
-			{
-				throw new RuntimeException("Bundle contains " + countE + " entries (expected 2)");
-			}
-
-			List<DocumentReference> documentReferences = entries.stream().map(Bundle.BundleEntryComponent::getResource)
-					.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
-
-			long countDr = documentReferences.size();
-			if (countDr != 1)
-			{
-				throw new RuntimeException("Bundle contains " + countDr + " DocumentReferences (expected 1)");
-			}
-
-			String identifierAuthor = documentReferences.stream().filter(DocumentReference::hasAuthor)
-					.flatMap(dr -> dr.getAuthor().stream()).filter(Reference::hasIdentifier)
-					.map(Reference::getIdentifier).filter(Identifier::hasValue).map(Identifier::getValue).findFirst()
-					.orElse("no-author");
-			if (!identifierAuthor.equals(sendingOrganization))
-			{
-				throw new RuntimeException("Requester in Task does not match author in DocumentReference ("
-						+ sendingOrganization + " != " + identifierAuthor + ")");
-			}
-
-			long countMi = documentReferences.stream().filter(DocumentReference::hasMasterIdentifier)
-					.map(DocumentReference::getMasterIdentifier)
-					.filter(mi -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(mi.getSystem()))
-					.map(Identifier::getValue).filter(Objects::nonNull).count();
-			if (countMi != 1)
-			{
-				throw new RuntimeException(
-						"DocumentReference contains " + countMi + " project-identifiers (expected 1)");
-			}
-
-			List<Resource> resources = entries.stream().map(Bundle.BundleEntryComponent::getResource)
-					.filter(r -> r != documentReferences.get(0)).toList();
-
-			long countR = resources.size();
-			if (countR != 1)
-			{
-				throw new RuntimeException("Bundle contains " + countR + " Resources (expected 1)");
-			}
-
-			Resource resource = resources.get(0);
-			String mimeTypeR = mimeTypeHelper.getMimeType(resource);
-			byte[] dataR = mimeTypeHelper.getData(resource);
-			mimeTypeHelper.validate(dataR, mimeTypeR);
-
+			resources.forEach(this::validate);
 		}
 		catch (Exception exception)
 		{
@@ -132,8 +71,7 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 			variables.updateTask(task);
 
 			logger.warn(
-					"Could not validate data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
+					"Could not validate data-set from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					task.getRequester().getIdentifier().getValue(),
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER), task.getId(),
 					exception.getMessage());
@@ -141,5 +79,12 @@ public class ValidateDataDms extends AbstractServiceDelegate implements Initiali
 			String error = "Validate data-set failed - " + exception.getMessage();
 			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
+	}
+
+	private void validate(Resource resource)
+	{
+		String mimeType = mimeTypeHelper.getMimeType(resource);
+		byte[] data = mimeTypeHelper.getData(resource);
+		mimeTypeHelper.validate(data, mimeType);
 	}
 }

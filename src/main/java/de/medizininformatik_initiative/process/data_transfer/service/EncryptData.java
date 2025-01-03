@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DocumentReference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
+import jakarta.ws.rs.core.MediaType;
 
 public class EncryptData extends AbstractServiceDelegate implements InitializingBean
 {
@@ -56,21 +58,20 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
+		List<Resource> resources = variables
+				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
 
-		logger.info(
-				"Encrypting transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
+		logger.info("Encrypting data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
 				dmsIdentifier, projectIdentifier, task.getId());
 
 		try
 		{
-			Bundle toEncrypt = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
-			String localOrganizationIdentifier = api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
-					.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
-
 			PublicKey publicKey = readPublicKey(dmsIdentifier);
-			byte[] encrypted = encrypt(publicKey, toEncrypt, localOrganizationIdentifier, dmsIdentifier);
+			String localOrganizationIdentifier = getLocalOrganizationIdentifier();
 
-			variables.setByteArray(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED, encrypted);
+			List<Binary> encryptedResources = encryptResources(resources, publicKey, localOrganizationIdentifier,
+					dmsIdentifier);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, encryptedResources);
 		}
 		catch (Exception exception)
 		{
@@ -78,7 +79,7 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 					"Could not encrypt data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
 
-			String error = "Encrypt transferable data-set failed - " + exception.getMessage();
+			String error = "Encrypt data-set failed - " + exception.getMessage();
 			throw new RuntimeException(error, exception);
 		}
 	}
@@ -183,16 +184,32 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 					"Sha256-hash in DocumentReference does not match computed sha256-hash of Binary");
 	}
 
-	private byte[] encrypt(PublicKey publicKey, Bundle bundle, String sendingOrganizationIdentifier,
+	private String getLocalOrganizationIdentifier()
+	{
+		return api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
+				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
+	}
+
+	private List<Binary> encryptResources(List<Resource> resources, PublicKey publicKey,
+			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
+	{
+		return resources.stream()
+				.map(r -> encryptResource(r, publicKey, sendingOrganizationIdentifier, receivingOrganizationIdentifier))
+				.toList();
+	}
+
+	private Binary encryptResource(Resource resource, PublicKey publicKey, String sendingOrganizationIdentifier,
 			String receivingOrganizationIdentifier)
 	{
 		try
 		{
-			byte[] toEncrypt = FhirContext.forR4().newXmlParser().encodeResourceToString(bundle)
+			byte[] toEncrypt = FhirContext.forR4().newXmlParser().encodeResourceToString(resource)
 					.getBytes(StandardCharsets.UTF_8);
 
-			return RsaAesGcmUtil.encrypt(publicKey, toEncrypt, sendingOrganizationIdentifier,
+			byte[] encrypted = RsaAesGcmUtil.encrypt(publicKey, toEncrypt, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
+
+			return new Binary().setData(encrypted).setContentType(MediaType.APPLICATION_OCTET_STREAM);
 		}
 		catch (Exception exception)
 		{

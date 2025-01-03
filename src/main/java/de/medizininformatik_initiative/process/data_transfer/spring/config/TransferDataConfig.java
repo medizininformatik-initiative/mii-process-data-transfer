@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Scope;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
-import de.medizininformatik_initiative.process.data_transfer.service.CreateBundle;
 import de.medizininformatik_initiative.process.data_transfer.service.DecryptData;
 import de.medizininformatik_initiative.process.data_transfer.service.DeleteData;
 import de.medizininformatik_initiative.process.data_transfer.service.DownloadData;
@@ -109,7 +108,8 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ReadData readData()
 	{
-		return new ReadData(api, dicFhirClientConfig.fhirClientFactory(), fhirBinaryStreamReadEnabled);
+		return new ReadData(api, dicFhirClientConfig.fhirClientFactory(), fhirBinaryStreamReadEnabled,
+				dicFhirClientConfig.dataLogger());
 	}
 
 	@Bean
@@ -117,13 +117,6 @@ public class TransferDataConfig
 	public ValidateDataDic validateDataDic()
 	{
 		return new ValidateDataDic(api, mimeTypeHelper());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public CreateBundle createBundle()
-	{
-		return new CreateBundle(api, dicFhirClientConfig.dataLogger());
 	}
 
 	@Bean
@@ -174,14 +167,14 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DownloadData downloadData()
 	{
-		return new DownloadData(api, dataSetStatusGenerator());
+		return new DownloadData(api, dataSetStatusGenerator(), dmsFhirClientConfig.dataLogger());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DecryptData decryptData()
 	{
-		return new DecryptData(api, keyProviderDms(), dmsFhirClientConfig.dataLogger(), dataSetStatusGenerator());
+		return new DecryptData(api, keyProviderDms(), dataSetStatusGenerator());
 	}
 
 	@Bean

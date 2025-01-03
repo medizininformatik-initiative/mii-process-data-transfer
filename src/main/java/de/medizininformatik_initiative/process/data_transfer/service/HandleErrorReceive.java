@@ -36,7 +36,7 @@ public class HandleErrorReceive extends AbstractServiceDelegate
 	private void sendMail(Task task, String projectIdentifier, String error)
 	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
-		String message = "Could not download and insert new data-set in process '"
+		String message = "Could not download and insert DocumentReference with attachments in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
 				+ "' from organization '" + task.getRequester().getIdentifier().getValue()
 				+ "' for project-identifier '" + projectIdentifier + "':\n" + "- status code: "

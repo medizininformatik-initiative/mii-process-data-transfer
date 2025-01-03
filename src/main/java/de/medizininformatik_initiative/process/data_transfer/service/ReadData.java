@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
+import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
@@ -58,12 +60,15 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	private final FhirClientFactory fhirClientFactory;
 	private final boolean fhirBinaryStreamReadEnabled;
 
+	private final DataLogger dataLogger;
 
-	public ReadData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, boolean fhirBinaryStreamReadEnabled)
+	public ReadData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, boolean fhirBinaryStreamReadEnabled,
+			DataLogger dataLogger)
 	{
 		super(api);
 		this.fhirClientFactory = fhirClientFactory;
 		this.fhirBinaryStreamReadEnabled = fhirBinaryStreamReadEnabled;
+		this.dataLogger = dataLogger;
 	}
 
 	@Override
@@ -71,6 +76,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	{
 		super.afterPropertiesSet();
 		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
+		Objects.requireNonNull(dataLogger, "dataLogger");
 	}
 
 	@Override
@@ -87,13 +93,14 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		try
 		{
 			DocumentReference documentReference = readDocumentReference(projectIdentifier, task.getId());
-			DataResource attachment = readAttachment(documentReference, task.getId());
-			Resource resource = getResource(attachment);
+			List<DataResource> attachments = readAttachments(documentReference, projectIdentifier, task.getId());
+			List<Resource> resources = getResources(attachments, projectIdentifier);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER, dmsIdentifier);
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DOCUMENT_REFERENCE, documentReference);
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE, resource);
+			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
+					documentReference);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, resources);
 		}
 		catch (Exception exception)
 		{
@@ -105,17 +112,6 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 			String error = "Read data-set failed - " + exception.getMessage();
 			throw new RuntimeException(error, exception);
 		}
-	}
-
-	private Resource getResource(DataResource attachment) throws IOException
-	{
-		// TODO handle stream directly and do not parse to resource
-		if (attachment.hasInputStream())
-			return new Binary().setData(attachment.stream.readAllBytes()).setContentType(attachment.mimetype);
-		else if (attachment.hasResource())
-			return attachment.resource;
-		else
-			throw new RuntimeException("Binary not available as resource or stream");
 	}
 
 	private String getProjectIdentifier(Task task)
@@ -166,17 +162,32 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 					documentReferences.size(), projectIdentifier, taskId,
 					documentReferences.get(0).getIdElement().getValue());
 
-		return documentReferences.get(0);
+		DocumentReference documentReference = documentReferences.get(0);
+		dataLogger.logResource("DocumentReference for project-identifier '" + projectIdentifier + "'",
+				documentReference);
+
+		return documentReference;
 	}
 
-	private DataResource readAttachment(DocumentReference documentReference, String taskId)
+	private List<DataResource> readAttachments(DocumentReference documentReference, String projectIdentifier,
+			String taskId)
 	{
-		String url = getAttachmentUrl(documentReference, taskId);
-		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(url, documentReference, taskId);
+		return Stream.of(documentReference).filter(DocumentReference::hasContent)
+				.flatMap(dr -> dr.getContent().stream())
+				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
+				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment)
+				.map(a -> readAttachment(a, documentReference.getIdElement(), projectIdentifier, taskId)).toList();
+	}
+
+	private DataResource readAttachment(Attachment attachment, IdType documentReferenceId, String projectIdentifier,
+			String taskId)
+	{
+		String url = getAttachmentUrl(attachment, documentReferenceId, taskId);
+		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(url, documentReferenceId, taskId);
 
 		if (fhirBinaryStreamReadEnabled && ResourceType.Binary.name().equals(urlIdType.getResourceType()))
 		{
-			String mimetype = getAttachmentMimeType(documentReference, taskId);
+			String mimetype = getAttachmentMimeType(attachment, documentReferenceId, taskId);
 			InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(urlIdType, mimetype);
 			return DataResource.of(stream, mimetype);
 		}
@@ -187,53 +198,24 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		}
 	}
 
-	private String getAttachmentUrl(DocumentReference documentReference, String taskId)
+	private String getAttachmentUrl(Attachment attachment, IdType documentReferenceId, String taskId)
 	{
-		List<String> urls = extractAttachments(documentReference).filter(Attachment::hasUrl).map(Attachment::getUrl)
-				.toList();
-
-		if (urls.size() < 1)
-			throw new IllegalArgumentException("Could not find any attachment URLs in DocumentReference with id '"
-					+ getKdsFhirStoreAbsoluteId(documentReference.getIdElement()) + "' belonging to task with id '"
-					+ taskId + "'");
-
-		if (urls.size() > 1)
-			logger.warn(
-					"Found {} attachment URLs in DocumentReference with id '{}' belonging to task with id '{}', using first ({})",
-					urls.size(), getKdsFhirStoreAbsoluteId(documentReference.getIdElement()), taskId, urls.get(0));
-
-		return urls.get(0);
+		return Optional.of(attachment).filter(Attachment::hasUrl).map(Attachment::getUrl).orElseThrow(
+				() -> new IllegalArgumentException("Could not find any attachment URLs in DocumentReference with id '"
+						+ getKdsFhirStoreAbsoluteId(documentReferenceId) + "' belonging to task with id '" + taskId
+						+ "'"));
 	}
 
-	private String getAttachmentMimeType(DocumentReference documentReference, String taskId)
+	private String getAttachmentMimeType(Attachment attachment, IdType documentReferenceId, String taskId)
 	{
-		List<String> contentTypes = extractAttachments(documentReference).filter(Attachment::hasContentType)
-				.map(Attachment::getContentType).toList();
-
-		if (contentTypes.size() < 1)
-			throw new IllegalArgumentException(
-					"Could not find any attachment contentType (mimeType) in DocumentReference with id '"
-							+ getKdsFhirStoreAbsoluteId(documentReference.getIdElement())
-							+ "' belonging to task with id '" + taskId + "'");
-
-		if (contentTypes.size() > 1)
-			logger.warn(
-					"Found {} attachment contentTypes (mimeTypes) in DocumentReference with id '{}' belonging to task with id '{}', using first ({})",
-					contentTypes.size(), getKdsFhirStoreAbsoluteId(documentReference.getIdElement()), taskId,
-					contentTypes.get(0));
-
-		return contentTypes.get(0);
+		return Optional.of(attachment).filter(Attachment::hasContentType).map(Attachment::getContentType)
+				.orElseThrow(() -> new IllegalArgumentException(
+						"Could not find any attachment contentType (mimeType) in DocumentReference with id '"
+								+ getKdsFhirStoreAbsoluteId(documentReferenceId) + "' belonging to task with id '"
+								+ taskId + "'"));
 	}
 
-	private Stream<Attachment> extractAttachments(DocumentReference documentReference)
-	{
-		return Stream.of(documentReference).filter(DocumentReference::hasContent)
-				.flatMap(dr -> dr.getContent().stream())
-				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
-				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment);
-	}
-
-	private IdType checkValidKdsFhirStoreUrlAndGetIdType(String url, DocumentReference documentReference, String taskId)
+	private IdType checkValidKdsFhirStoreUrlAndGetIdType(String url, IdType documentReferenceId, String taskId)
 	{
 		try
 		{
@@ -248,9 +230,9 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				return idType;
 			else
 				throw new IllegalArgumentException("Attachment URL " + url + " in DocumentReference with id '"
-						+ getKdsFhirStoreAbsoluteId(documentReference.getIdElement()) + "' belonging to task with id '"
-						+ taskId + "' is not a valid KDS FHIR store reference (baseUrl if not empty must match '"
-						+ fhirBaseUrl + "', resource type must be set, id must be set)");
+						+ getKdsFhirStoreAbsoluteId(documentReferenceId) + "' belonging to task with id '" + taskId
+						+ "' is not a valid KDS FHIR store reference (baseUrl if not empty must match '" + fhirBaseUrl
+						+ "', resource type must be set, id must be set)");
 		}
 		catch (Exception exception)
 		{
@@ -259,6 +241,34 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 					"Could not check if attachment url is a valid KDS FHIR store url - " + exception.getMessage(),
 					exception);
 		}
+	}
+
+	private List<Resource> getResources(List<DataResource> dataResources, String projectIdentifier)
+	{
+		return dataResources.stream().map(this::getResource).filter(Objects::nonNull).peek(
+				r -> dataLogger.logResource("Read attachment for project-identifier '" + projectIdentifier + "'", r))
+				.toList();
+	}
+
+	private Resource getResource(DataResource attachment)
+	{
+		// TODO handle stream directly and do not parse to resource
+		if (attachment.hasInputStream())
+		{
+			try
+			{
+				return new Binary().setData(attachment.stream.readAllBytes()).setContentType(attachment.mimetype);
+			}
+			catch (IOException exception)
+			{
+				throw new RuntimeException(
+						"Could not read Binary resource contents from stream " + exception.getMessage(), exception);
+			}
+		}
+		else if (attachment.hasResource())
+			return attachment.resource;
+		else
+			throw new RuntimeException("Binary not available as resource or stream");
 	}
 
 	private String getKdsFhirStoreAbsoluteId(IdType idType)

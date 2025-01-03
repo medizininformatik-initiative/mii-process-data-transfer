@@ -16,6 +16,7 @@ import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
@@ -65,7 +66,8 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
-		Bundle bundle = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
+		List<Resource> resources = variables
+				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
 
 		logger.info(
 				"Inserting data-set on FHIR server with baseUrl '{}' received from organization '{}' for project-identifier '{}' in Task with id '{}'",
@@ -73,15 +75,15 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 
 		try
 		{
-			List<IdType> createdIds = storeData(bundle, sendingOrganization, projectIdentifier, variables);
+			// TODO: does not work with Blaze FHIR server
+			insertData(resources, sendingOrganization, projectIdentifier, task);
 
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
 							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
-			variables.updateTask(task);
 
-			sendMail(task, createdIds, sendingOrganization, projectIdentifier);
+			variables.updateTask(task);
 		}
 		catch (Exception exception)
 		{
@@ -93,8 +95,7 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 			variables.updateTask(task);
 
 			logger.warn(
-					"Could not insert data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
+					"Could not insert data-set from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					task.getRequester().getIdentifier().getValue(),
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER), task.getId(),
 					exception.getMessage());
@@ -104,38 +105,43 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		}
 	}
 
-	private List<IdType> storeData(Bundle bundle, String sendingOrganization, String projectIdentifier,
-			Variables variables)
+	private void insertData(List<Resource> resources, String sendingOrganization, String projectIdentifier,
+			Task startTask)
 	{
-		Binary binary = bundle.getEntry().stream().filter(Bundle.BundleEntryComponent::hasResource)
-				.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof Binary).map(r -> (Binary) r)
-				.findFirst().orElseThrow(() -> new RuntimeException("No binary supplied"));
+		List<Resource> attachments = createResources(resources);
+		List<IdType> attachmentIdTypes = attachments.stream().map(Resource::getIdElement).toList();
+		attachmentIdTypes.forEach(id -> toLogMessage(id, sendingOrganization, projectIdentifier));
 
-		IdType binaryIdType = createBinary(binary);
 		IdType documentReferenceIdType = createOrUpdateDocumentReference(sendingOrganization, projectIdentifier,
-				binaryIdType, binary.getContentType(), variables.getStartTask());
+				resources, startTask);
+		toLogMessage(documentReferenceIdType, sendingOrganization, projectIdentifier);
 
-		List<IdType> idsOfCreatedResources = List.of(documentReferenceIdType, binaryIdType);
-
-		idsOfCreatedResources.stream().filter(i -> ResourceType.DocumentReference.name().equals(i.getResourceType()))
-				.forEach(i -> addOutputToStartTask(variables, i));
-
-		idsOfCreatedResources.forEach(id -> toLogMessage(id, sendingOrganization, projectIdentifier));
-
-		return idsOfCreatedResources;
+		addOutputToStartTask(startTask, documentReferenceIdType);
+		sendMail(startTask, documentReferenceIdType, attachmentIdTypes, sendingOrganization, projectIdentifier);
 	}
 
-	private IdType createBinary(Binary binary)
+	private List<Resource> createResources(List<Resource> resource)
 	{
-		if (fhirBinaryStreamWriteEnabled)
-			return (IdType) fhirClientFactory.getBinaryStreamFhirClient()
-					.create(new ByteArrayInputStream(binary.getContent()), binary.getContentType()).getId();
+		return resource.stream().map(this::createResource).toList();
+	}
 
-		return (IdType) fhirClientFactory.getStandardFhirClient().create(binary).getId();
+	private Resource createResource(Resource resource)
+	{
+		if (fhirBinaryStreamWriteEnabled && resource instanceof Binary binary)
+		{
+			IdType id = (IdType) fhirClientFactory.getBinaryStreamFhirClient()
+					.create(new ByteArrayInputStream(binary.getContent()), binary.getContentType()).getId();
+			resource.setIdElement(id);
+			return resource;
+		}
+
+		IdType id = (IdType) fhirClientFactory.getStandardFhirClient().create(resource).getId();
+		resource.setIdElement(id);
+		return resource;
 	}
 
 	private IdType createOrUpdateDocumentReference(String sendingOrganization, String projectIdentifier,
-			IdType binaryIdType, String mimeType, Task task)
+			List<Resource> resources, Task task)
 	{
 		Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
 				.forResource(DocumentReference.class)
@@ -152,9 +158,9 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 		if (existingDocumentReferences.size() < 1)
 		{
 			logger.info(
-					"DocumentReference for project-identifier '{}' authored by '{}' does not exist yet, creating a new one for data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
+					"DocumentReference for project-identifier '{}' authored by '{}' does not exist yet, creating a new one on FHIR server with baseUrl '{}' referenced in Task with id '{}'",
 					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
-			return createDocumentReference(sendingOrganization, projectIdentifier, binaryIdType, mimeType);
+			return createDocumentReference(sendingOrganization, projectIdentifier, resources);
 		}
 		else
 		{
@@ -164,15 +170,15 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 						projectIdentifier, sendingOrganization);
 
 			logger.info(
-					"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
+					"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' referenced in Task with id '{}'",
 					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
 
-			return updateDocumentReference(existingDocumentReferences.get(0), binaryIdType, mimeType);
+			return updateDocumentReference(existingDocumentReferences.get(0), resources);
 		}
 	}
 
-	private IdType createDocumentReference(String sendingOrganization, String projectIdentifier, IdType binaryIdType,
-			String mimeType)
+	private IdType createDocumentReference(String sendingOrganization, String projectIdentifier,
+			List<Resource> attachments)
 	{
 		DocumentReference documentReference = new DocumentReference().setStatus(CURRENT).setDocStatus(FINAL);
 		documentReference.getMasterIdentifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
@@ -181,35 +187,57 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(sendingOrganization));
 		documentReference.setDate(new Date());
 
-		documentReference.addContent().getAttachment().setUrl(binaryIdType.toUnqualified().getValue())
-				.setContentType(mimeType);
+		addAttachmentsToDocumentReference(documentReference, attachments);
 
-		return setIdBase((IdType) fhirClientFactory.getStandardFhirClient().create(documentReference).getResource()
-				.getIdElement());
+		IdType documentReferenceId = (IdType) fhirClientFactory.getStandardFhirClient().create(documentReference)
+				.getResource().getIdElement();
+		return setIdBase(documentReferenceId);
 	}
 
-	private IdType updateDocumentReference(DocumentReference documentReference, IdType binaryIdType, String mimeType)
+	private IdType updateDocumentReference(DocumentReference documentReference, List<Resource> attachments)
 	{
-		documentReference.getContentFirstRep().getAttachment().setContentType(mimeType)
-				.setUrl(binaryIdType.toUnqualified().getValue());
+		addAttachmentsToDocumentReference(documentReference, attachments);
 
 		fhirClientFactory.getStandardFhirClient().getGenericFhirClient().update().resource(documentReference)
 				.withId(documentReference.getIdElement().getIdPart()).execute();
-
 		return setIdBase(documentReference.getIdElement());
 	}
 
-	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
+	private void addAttachmentsToDocumentReference(DocumentReference documentReference, List<Resource> attachments)
 	{
-		String subject = "New data-set received in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE
-				+ "'";
-		StringBuilder message = new StringBuilder("A new data-set has been stored in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
-				+ "' received from organization '" + sendingOrganization + "' for project-identifier '"
-				+ projectIdentifier + "' with status code '" + ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK
-				+ "' and can be accessed using the following links:\n");
+		documentReference.setContent(null);
+		attachments.forEach(a -> addAttachmentToDocumentReference(documentReference, a));
+	}
 
-		for (IdType id : createdIds)
+	private void addAttachmentToDocumentReference(DocumentReference documentReference, Resource attachment)
+	{
+		documentReference.addContent().getAttachment().setContentType(getContentType(attachment))
+				.setUrl(attachment.getIdElement().toUnqualified().getValue());
+	}
+
+	private String getContentType(Resource resource)
+	{
+		if (resource instanceof Binary binary)
+			return binary.getContentType();
+		else
+			return "application/fhir+xml";
+	}
+
+	private void sendMail(Task task, IdType documentReferenceId, List<IdType> attachmentIds, String sendingOrganization,
+			String projectIdentifier)
+	{
+		String subject = "New DocumentReference with attachments received in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
+		StringBuilder message = new StringBuilder(
+				"A new DocumentReference with attachments has been stored in process '"
+						+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' for Task with id '" + task.getId()
+						+ "' received from organization '" + sendingOrganization + "' for project-identifier '"
+						+ projectIdentifier + "' with status code '"
+						+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK
+						+ "' and can be accessed using the following links:\n");
+
+		message.append(documentReferenceId.getValue()).append("\n");
+		for (IdType id : attachmentIds)
 			message.append(id.getValue()).append("\n");
 
 		api.getMailService().send(subject, message.toString());
@@ -229,13 +257,10 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				projectIdentifier);
 	}
 
-	private void addOutputToStartTask(Variables variables, IdType id)
+	private void addOutputToStartTask(Task startTask, IdType id)
 	{
-		Task startTask = variables.getStartTask();
 		startTask.addOutput().setValue(new Reference(id.getValue()).setType(id.getResourceType())).getType().addCoding()
 				.setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
-
-		variables.updateTask(startTask);
 	}
 }
