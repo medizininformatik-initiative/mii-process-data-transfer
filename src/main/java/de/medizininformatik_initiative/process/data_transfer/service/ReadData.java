@@ -93,7 +93,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		try
 		{
 			DocumentReference documentReference = readDocumentReference(projectIdentifier, task.getId());
-			List<DataResource> attachments = readAttachments(documentReference, projectIdentifier, task.getId());
+			Stream<DataResource> attachments = readAttachments(documentReference, task.getId());
 			List<Resource> resources = getResources(attachments, projectIdentifier);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
@@ -169,18 +169,16 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		return documentReference;
 	}
 
-	private List<DataResource> readAttachments(DocumentReference documentReference, String projectIdentifier,
-			String taskId)
+	private Stream<DataResource> readAttachments(DocumentReference documentReference, String taskId)
 	{
 		return Stream.of(documentReference).filter(DocumentReference::hasContent)
 				.flatMap(dr -> dr.getContent().stream())
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
 				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment)
-				.map(a -> readAttachment(a, documentReference.getIdElement(), projectIdentifier, taskId)).toList();
+				.map(a -> readAttachment(a, documentReference.getIdElement(), taskId));
 	}
 
-	private DataResource readAttachment(Attachment attachment, IdType documentReferenceId, String projectIdentifier,
-			String taskId)
+	private DataResource readAttachment(Attachment attachment, IdType documentReferenceId, String taskId)
 	{
 		String url = getAttachmentUrl(attachment, documentReferenceId, taskId);
 		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(url, documentReferenceId, taskId);
@@ -243,9 +241,9 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		}
 	}
 
-	private List<Resource> getResources(List<DataResource> dataResources, String projectIdentifier)
+	private List<Resource> getResources(Stream<DataResource> dataResources, String projectIdentifier)
 	{
-		return dataResources.stream().map(this::getResource).filter(Objects::nonNull).peek(
+		return dataResources.map(this::getResource).filter(Objects::nonNull).peek(
 				r -> dataLogger.logResource("Read attachment for project-identifier '" + projectIdentifier + "'", r))
 				.toList();
 	}
