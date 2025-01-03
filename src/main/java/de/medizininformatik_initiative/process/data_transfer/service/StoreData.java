@@ -66,9 +66,6 @@ public class StoreData extends AbstractServiceDelegate
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
 					getDsfFhirStoreAbsoluteId(transferDocumentReference.getIdElement()));
 
-			// free memory from encrypted Binary resources
-			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, null);
-
 			log(projectIdentifier, dmsIdentifier, transferDocumentReference.getId(), task.getId());
 
 			Target target = createTarget(variables, dmsIdentifier);

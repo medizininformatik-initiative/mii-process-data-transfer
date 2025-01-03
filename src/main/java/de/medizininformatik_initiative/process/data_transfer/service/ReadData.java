@@ -255,9 +255,9 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		// TODO handle stream directly and do not parse to resource
 		if (attachment.hasInputStream())
 		{
-			try
+			try (InputStream in = attachment.stream)
 			{
-				return new Binary().setData(attachment.stream.readAllBytes()).setContentType(attachment.mimetype);
+				return new Binary().setData(in.readAllBytes()).setContentType(attachment.mimetype);
 			}
 			catch (IOException exception)
 			{

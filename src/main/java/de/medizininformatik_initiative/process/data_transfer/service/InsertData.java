@@ -4,6 +4,8 @@ import static org.hl7.fhir.r4.model.DocumentReference.ReferredDocumentStatus.FIN
 import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -129,10 +131,17 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 	{
 		if (fhirBinaryStreamWriteEnabled && resource instanceof Binary binary)
 		{
-			IdType id = (IdType) fhirClientFactory.getBinaryStreamFhirClient()
-					.create(new ByteArrayInputStream(binary.getContent()), binary.getContentType()).getId();
-			resource.setIdElement(id);
-			return resource;
+			try (InputStream in = new ByteArrayInputStream(binary.getContent()))
+			{
+				IdType id = (IdType) fhirClientFactory.getBinaryStreamFhirClient().create(in, binary.getContentType())
+						.getId();
+				resource.setIdElement(id);
+				return resource;
+			}
+			catch (IOException exception)
+			{
+				throw new RuntimeException(exception);
+			}
 		}
 
 		IdType id = (IdType) fhirClientFactory.getStandardFhirClient().create(resource).getId();
