@@ -53,13 +53,8 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		writeStatusLogAndSendMail(startTask, projectIdentifier, dmsIdentifier);
 
 		variables.updateTask(startTask);
-
 		if (Task.TaskStatus.FAILED.equals(startTask.getStatus()))
-		{
-			api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-					.update(startTask);
-		}
+			updateTaskOnServer(startTask);
 	}
 
 	private void handleReceivedResponse(Task startTask, Task currentTask)
@@ -109,7 +104,7 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		{
 			String errorLog = error.isBlank() ? "" : " - " + error;
 			logger.warn(
-					"Could not deliver encrypted transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
+					"Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
 					dmsIdentifier, projectIdentifier, task.getId(), errorLog);
 
 			sendErrorMail(task, projectIdentifier, dmsIdentifier, code, error);
@@ -137,5 +132,12 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 				+ "':\n" + "- status code: " + code + "\n" + "- error: " + error;
 
 		api.getMailService().send(subject, message);
+	}
+
+	private void updateTaskOnServer(Task startTask)
+	{
+		api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
+				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
+				.update(startTask);
 	}
 }

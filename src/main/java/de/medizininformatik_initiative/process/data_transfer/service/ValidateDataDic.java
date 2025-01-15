@@ -1,5 +1,6 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
+import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
@@ -47,12 +48,9 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 
 		try
 		{
-			Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
-
-			String mimeType = mimeTypeHelper.getMimeType(resource);
-			byte[] data = mimeTypeHelper.getData(resource);
-
-			mimeTypeHelper.validate(data, mimeType);
+			List<Resource> resources = variables
+					.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
+			resources.forEach(this::validate);
 		}
 		catch (Exception exception)
 		{
@@ -63,5 +61,13 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 			String error = "Validate data-set failed - " + exception.getMessage();
 			throw new RuntimeException(error, exception);
 		}
+	}
+
+	private void validate(Resource resource)
+	{
+		String mimeType = mimeTypeHelper.getMimeType(resource);
+		byte[] data = mimeTypeHelper.getData(resource);
+
+		mimeTypeHelper.validate(data, mimeType);
 	}
 }

@@ -24,11 +24,11 @@ public interface ConstantsDataTransfer
 
 	String BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER = "projectIdentifier";
 	String BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER = "dms-identifier";
-	String BPMN_EXECUTION_VARIABLE_DATA_SET = "dataSet";
-	String BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED = "dataSetEncrypted";
-	String BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE = "dataSetReference";
-	String BPMN_EXECUTION_VARIABLE_DOCUMENT_REFERENCE = "documentReference";
-	String BPMN_EXECUTION_VARIABLE_DATA_RESOURCE = "dataResource";
+	String BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE = "initialDocumentReference";
+	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE = "transferDocumentReference";
+	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION = "transferDocumentReferenceLocation";
+	String BPMN_EXECUTION_VARIABLE_DATA_RESOURCES = "dataResources";
+
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR = "dataSendError";
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE = "dataSendErrorMessage";
 	String BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR = "dataReceiveError";
@@ -37,7 +37,6 @@ public interface ConstantsDataTransfer
 	String CODESYSTEM_DATA_TRANSFER = "http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DMS_IDENTIFIER = "dms-identifier";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER = "project-identifier";
-	String CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE = "data-set-reference";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION = "document-reference-location";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS = "data-set-status";
 }

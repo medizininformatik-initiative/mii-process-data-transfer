@@ -23,9 +23,7 @@ public class HandleErrorSend extends AbstractServiceDelegate
 		Task task = variables.getStartTask();
 
 		if (Task.TaskStatus.FAILED.equals(task.getStatus()))
-		{
 			sendMail(task, variables);
-		}
 	}
 
 	private void sendMail(Task task, Variables variables)
@@ -41,10 +39,10 @@ public class HandleErrorSend extends AbstractServiceDelegate
 				.findFirst().orElse("unknown");
 
 		String subject = "Error in process '" + ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR + "'";
-		String message = "Could not send data-set in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND
-				+ "' for Task with id '" + task.getId() + "' to DMS with identifier '" + dmsIdentifier
-				+ "' for project-identifier '" + projectIdentifier + "':\n" + "- status code: " + statusCode + "\n"
-				+ "- error: " + (error == null ? "none" : error);
+		String message = "Could not send DocumentReference with attachments in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
+				+ "' to DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
+				+ "':\n" + "- status code: " + statusCode + "\n" + "- error: " + (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);
 	}

@@ -47,12 +47,14 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 	@Override
 	protected Stream<ParameterComponent> getAdditionalInputParameters(DelegateExecution execution, Variables variables)
 	{
-		String binaryId = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE);
+		String documentReferenceId = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION);
 
-		ParameterComponent binaryComponent = new ParameterComponent();
-		binaryComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE);
-		binaryComponent.setValue(new Reference().setType(ResourceType.Binary.name()).setReference(binaryId));
+		ParameterComponent documentReferenceComponent = new ParameterComponent();
+		documentReferenceComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
+		documentReferenceComponent.setValue(
+				new Reference().setType(ResourceType.DocumentReference.name()).setReference(documentReferenceId));
 
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -63,7 +65,7 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 		projectIdentifierComponent.setValue(new Identifier()
 				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
-		return Stream.of(binaryComponent, projectIdentifierComponent);
+		return Stream.of(documentReferenceComponent, projectIdentifierComponent);
 	}
 
 	@Override
@@ -95,13 +97,13 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 		variables.updateTask(task);
 
 		logger.warn(
-				"Could not send data-set with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
+				"Could not send DocumentReference with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
+				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION),
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER),
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER), task.getId(),
 				exception.getMessage());
 		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR,
-				"Send data-set - " + exception.getMessage());
+				"Send DocumentReference location failed - " + exception.getMessage());
 	}
 
 	@Override

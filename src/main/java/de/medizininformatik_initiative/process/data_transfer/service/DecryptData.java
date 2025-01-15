@@ -2,21 +2,22 @@ package de.medizininformatik_initiative.process.data_transfer.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
+import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Binary;
+import org.hl7.fhir.r4.model.DocumentReference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.RsaAesGcmUtil;
-import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
@@ -28,16 +29,13 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 	private static final Logger logger = LoggerFactory.getLogger(DecryptData.class);
 
 	private final KeyProvider keyProvider;
-	private final DataLogger dataLogger;
 	private final DataSetStatusGenerator statusGenerator;
 
-	public DecryptData(ProcessPluginApi api, KeyProvider keyProvider, DataLogger dataLogger,
-			DataSetStatusGenerator statusGenerator)
+	public DecryptData(ProcessPluginApi api, KeyProvider keyProvider, DataSetStatusGenerator statusGenerator)
 	{
 		super(api);
 
 		this.keyProvider = keyProvider;
-		this.dataLogger = dataLogger;
 		this.statusGenerator = statusGenerator;
 	}
 
@@ -47,7 +45,6 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 		super.afterPropertiesSet();
 
 		Objects.requireNonNull(keyProvider, "keyProvider");
-		Objects.requireNonNull(dataLogger, "dataLogger");
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
@@ -55,25 +52,25 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
 		Task task = variables.getStartTask();
-		byte[] bundleEncrypted = variables
-				.getByteArray(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED);
-		String localOrganizationIdentifier = api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
-				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
+		DocumentReference documentReference = variables
+				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE);
+		List<Binary> encryptedResources = variables
+				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
+		String localOrganizationIdentifier = getLocalOrganizationIdentifier();
 		String sendingOrganizationIdentifier = getSendingOrganizationIdentifier(variables);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
-		logger.info("Decrypting data-set from organization '{}' with project-identifier '{}' in Task with id '{}'",
+		logger.info(
+				"Decrypting data-set from organization '{}' with project-identifier '{}' referenced in Task with id '{}'",
 				sendingOrganizationIdentifier, projectIdentifier, task.getId());
 
 		try
 		{
-			Bundle bundleDecrypted = decryptBundle(variables, keyProvider.getPrivateKey(), bundleEncrypted,
-					sendingOrganizationIdentifier, localOrganizationIdentifier);
+			List<Resource> decryptedResources = decryptResources(variables, keyProvider.getPrivateKey(),
+					documentReference, encryptedResources, sendingOrganizationIdentifier, localOrganizationIdentifier);
 
-			dataLogger.logResource("Decrypted Transfer Bundle", bundleDecrypted);
-
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET, bundleDecrypted);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, decryptedResources);
 		}
 		catch (Exception exception)
 		{
@@ -85,8 +82,7 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 			variables.updateTask(task);
 
 			logger.warn(
-					"Could not decrypt data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
+					"Could not decrypt data-set from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					task.getRequester().getIdentifier().getValue(),
 					variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER), task.getId(),
 					exception.getMessage());
@@ -96,20 +92,33 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 		}
 	}
 
+	private String getLocalOrganizationIdentifier()
+	{
+		return api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
+				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
+	}
+
 	private String getSendingOrganizationIdentifier(Variables variables)
 	{
 		return variables.getStartTask().getRequester().getIdentifier().getValue();
 	}
 
-	private Bundle decryptBundle(Variables variables, PrivateKey privateKey, byte[] bundleEncrypted,
-			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
+	private List<Resource> decryptResources(Variables variables, PrivateKey privateKey,
+			DocumentReference documentReference, List<Binary> binaries, String sendingOrganizationIdentifier,
+			String receivingOrganizationIdentifier)
+	{
+		return binaries.stream().map(b -> decryptResource(variables, privateKey, documentReference, b,
+				sendingOrganizationIdentifier, receivingOrganizationIdentifier)).toList();
+	}
+
+	private Resource decryptResource(Variables variables, PrivateKey privateKey, DocumentReference documentReference,
+			Binary binary, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
 	{
 		try
 		{
-			byte[] bundleDecrypted = RsaAesGcmUtil.decrypt(privateKey, bundleEncrypted, sendingOrganizationIdentifier,
+			byte[] decrypted = RsaAesGcmUtil.decrypt(privateKey, binary.getContent(), sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
-			String bundleString = new String(bundleDecrypted, StandardCharsets.UTF_8);
-			return (Bundle) FhirContext.forR4().newXmlParser().parseResource(bundleString);
+			return getResourceFromBytes(decrypted, binary.getContentType());
 		}
 		catch (Exception exception)
 		{
@@ -119,5 +128,14 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 			throw new RuntimeException("Could not decrypt received data-set for Task with id '" + taskId + "'",
 					exception);
 		}
+	}
+
+	private Resource getResourceFromBytes(byte[] data, String mimeType)
+	{
+		if ("application/fhir+json".equals(mimeType))
+			return (Resource) api.getFhirContext().newJsonParser()
+					.parseResource(new String(data, StandardCharsets.UTF_8));
+		else
+			return new Binary().setData(data).setContentType(mimeType);
 	}
 }
