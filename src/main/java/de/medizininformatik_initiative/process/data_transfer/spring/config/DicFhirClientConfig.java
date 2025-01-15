@@ -103,7 +103,7 @@ public class DicFhirClientConfig
 	private String fhirStoreProxyPassword;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "The base url of the oidc provider", example = "http://foo.baz/realms/fhir-realm/protocol/openid-connect/token")
+			"medizininformatik-initiativede_dataSend" }, description = "The base url of the oidc provider", example = "http://foo.baz/realms/fhir-realm")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.issuer.url:#{null}}")
 	private String fhirStoreOAuth2IssuerUrl;
 
