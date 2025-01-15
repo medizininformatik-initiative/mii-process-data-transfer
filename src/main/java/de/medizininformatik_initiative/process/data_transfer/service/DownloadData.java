@@ -74,6 +74,8 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 			List<Binary> encryptedResources = readAttachments(documentReference, sendingOrganization,
 					projectIdentifier);
 
+			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE,
+					documentReference);
 			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, encryptedResources);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 		}
@@ -161,9 +163,10 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN);
 
 		// TODO handle stream directly and do not parse to resource
-		try (InputStream binary = readBinaryResource(client, attachmentId.getIdPart(), attachmentId.getVersionIdPart()))
+		try (InputStream binary = readBinaryResource(client, attachmentId.getIdPart(), attachmentId.getVersionIdPart(),
+				attachment.getContentType()))
 		{
-			return new Binary().setData(binary.readAllBytes()).setContentType(MediaType.APPLICATION_OCTET_STREAM);
+			return new Binary().setData(binary.readAllBytes()).setContentType(attachment.getContentType());
 		}
 		catch (IOException exception)
 		{
@@ -171,11 +174,11 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		}
 	}
 
-	private InputStream readBinaryResource(BasicFhirWebserviceClient client, String id, String version)
+	private InputStream readBinaryResource(BasicFhirWebserviceClient client, String id, String version, String mimeType)
 	{
 		if (version != null && !version.isEmpty())
-			return client.readBinary(id, version, MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
+			return client.readBinary(id, version, MediaType.valueOf(mimeType));
 		else
-			return client.readBinary(id, MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
+			return client.readBinary(id, MediaType.valueOf(mimeType));
 	}
 }

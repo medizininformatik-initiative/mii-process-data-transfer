@@ -8,13 +8,13 @@ import java.util.Objects;
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Binary;
+import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.RsaAesGcmUtil;
@@ -52,6 +52,8 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
 		Task task = variables.getStartTask();
+		DocumentReference documentReference = variables
+				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE);
 		List<Binary> encryptedResources = variables
 				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
 		String localOrganizationIdentifier = getLocalOrganizationIdentifier();
@@ -66,7 +68,7 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 		try
 		{
 			List<Resource> decryptedResources = decryptResources(variables, keyProvider.getPrivateKey(),
-					encryptedResources, sendingOrganizationIdentifier, localOrganizationIdentifier);
+					documentReference, encryptedResources, sendingOrganizationIdentifier, localOrganizationIdentifier);
 
 			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, decryptedResources);
 		}
@@ -101,23 +103,22 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 		return variables.getStartTask().getRequester().getIdentifier().getValue();
 	}
 
-	private List<Resource> decryptResources(Variables variables, PrivateKey privateKey, List<Binary> binaries,
-			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
+	private List<Resource> decryptResources(Variables variables, PrivateKey privateKey,
+			DocumentReference documentReference, List<Binary> binaries, String sendingOrganizationIdentifier,
+			String receivingOrganizationIdentifier)
 	{
-		return binaries.stream().map(b -> decryptResource(variables, privateKey, b, sendingOrganizationIdentifier,
-				receivingOrganizationIdentifier)).toList();
+		return binaries.stream().map(b -> decryptResource(variables, privateKey, documentReference, b,
+				sendingOrganizationIdentifier, receivingOrganizationIdentifier)).toList();
 	}
 
-	private Resource decryptResource(Variables variables, PrivateKey privateKey, Binary binary,
-			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
+	private Resource decryptResource(Variables variables, PrivateKey privateKey, DocumentReference documentReference,
+			Binary binary, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
 	{
 		try
 		{
 			byte[] decrypted = RsaAesGcmUtil.decrypt(privateKey, binary.getContent(), sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
-			String resourceString = new String(decrypted, StandardCharsets.UTF_8);
-
-			return (Resource) FhirContext.forR4().newXmlParser().parseResource(resourceString);
+			return getResourceFromBytes(decrypted, binary.getContentType());
 		}
 		catch (Exception exception)
 		{
@@ -127,5 +128,14 @@ public class DecryptData extends AbstractServiceDelegate implements Initializing
 			throw new RuntimeException("Could not decrypt received data-set for Task with id '" + taskId + "'",
 					exception);
 		}
+	}
+
+	private Resource getResourceFromBytes(byte[] data, String mimeType)
+	{
+		if ("application/fhir+json".equals(mimeType))
+			return (Resource) api.getFhirContext().newJsonParser()
+					.parseResource(new String(data, StandardCharsets.UTF_8));
+		else
+			return new Binary().setData(data).setContentType(mimeType);
 	}
 }

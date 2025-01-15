@@ -6,6 +6,7 @@ import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Attachment;
@@ -33,6 +34,10 @@ public class StoreData extends AbstractServiceDelegate
 {
 	private static final Logger logger = LoggerFactory.getLogger(StoreData.class);
 
+	private record BinaryMeta(String id, String mimetype)
+	{
+	}
+
 	public StoreData(ProcessPluginApi api)
 	{
 		super(api);
@@ -58,8 +63,8 @@ public class StoreData extends AbstractServiceDelegate
 		{
 			DocumentReference transferDocumentReference = createAndStoreDocumentReference(projectIdentifier,
 					initialDocumentReference, dmsIdentifier);
-			List<String> binaryIds = storeBinaries(encryptedResources, transferDocumentReference);
-			transferDocumentReference = updateDocumentReference(transferDocumentReference, binaryIds);
+			Stream<BinaryMeta> binaryMetas = storeBinaries(encryptedResources, transferDocumentReference);
+			transferDocumentReference = updateDocumentReference(transferDocumentReference, binaryMetas);
 
 			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE,
 					transferDocumentReference);
@@ -106,24 +111,22 @@ public class StoreData extends AbstractServiceDelegate
 				.create(documentReference);
 	}
 
-	private List<String> storeBinaries(List<Binary> binaries, DocumentReference documentReference)
+	private Stream<BinaryMeta> storeBinaries(List<Binary> binaries, DocumentReference documentReference)
 	{
 		String securityContext = getDsfFhirStoreAbsoluteId(documentReference.getIdElement());
-		return binaries.stream().map(b -> storeBinary(b, securityContext)).toList();
+		return binaries.stream().map(b -> storeBinary(b, securityContext));
 	}
 
-	private String storeBinary(Binary binary, String securityContext)
+	private BinaryMeta storeBinary(Binary binary, String securityContext)
 	{
 		MediaType mediaType = MediaType.valueOf(binary.getContentType());
 
 		try (InputStream in = new ByteArrayInputStream(binary.getContent()))
 		{
-			binary = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
+			IdType id = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-					.createBinary(in, mediaType, securityContext);
-			return new IdType(api.getFhirWebserviceClientProvider().getLocalWebserviceClient().getBaseUrl(),
-					ResourceType.Binary.name(), binary.getIdElement().getIdPart(),
-					binary.getIdElement().getVersionIdPart()).getValue();
+					.createBinary(in, mediaType, securityContext).getIdElement();
+			return new BinaryMeta(getDsfFhirStoreAbsoluteId(id), binary.getContentType());
 		}
 		catch (Exception exception)
 		{
@@ -132,15 +135,17 @@ public class StoreData extends AbstractServiceDelegate
 		}
 	}
 
-	private DocumentReference updateDocumentReference(DocumentReference documentReference, List<String> binaryIds)
+	private DocumentReference updateDocumentReference(DocumentReference documentReference,
+			Stream<BinaryMeta> binaryMetas)
 	{
 		documentReference.setDocStatus(DocumentReference.ReferredDocumentStatus.FINAL);
 
 		// Remove dummy attachment created before.
 		documentReference.setContent(null);
 
-		binaryIds.forEach(id -> documentReference.addContent().getAttachment().setUrl(id)
-				.setContentType(MediaType.APPLICATION_OCTET_STREAM));
+		// TODO Set correct mimytype
+		binaryMetas.forEach(
+				meta -> documentReference.addContent().getAttachment().setUrl(meta.id).setContentType(meta.mimetype));
 		return api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
 				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
 				.update(documentReference);

@@ -21,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.RsaAesGcmUtil;
@@ -30,7 +29,6 @@ import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
 import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
-import jakarta.ws.rs.core.MediaType;
 
 public class EncryptData extends AbstractServiceDelegate implements InitializingBean
 {
@@ -203,18 +201,34 @@ public class EncryptData extends AbstractServiceDelegate implements Initializing
 	{
 		try
 		{
-			byte[] toEncrypt = FhirContext.forR4().newXmlParser().encodeResourceToString(resource)
-					.getBytes(StandardCharsets.UTF_8);
-
+			byte[] toEncrypt = getBytesToEncrypt(resource);
 			byte[] encrypted = RsaAesGcmUtil.encrypt(publicKey, toEncrypt, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
 
-			return new Binary().setData(encrypted).setContentType(MediaType.APPLICATION_OCTET_STREAM);
+			String mimeType = getMimeType(resource);
+			return new Binary().setData(encrypted).setContentType(mimeType);
 		}
 		catch (Exception exception)
 		{
 			logger.warn("Could not encrypt data-set to transmit - {}", exception.getMessage());
 			throw new RuntimeException("Could not encrypt data-set to transmit - " + exception.getMessage());
 		}
+	}
+
+	private byte[] getBytesToEncrypt(Resource resource)
+	{
+		if (resource instanceof Binary binary)
+			return binary.getData();
+		else
+			return api.getFhirContext().newJsonParser().encodeResourceToString(resource)
+					.getBytes(StandardCharsets.UTF_8);
+	}
+
+	private String getMimeType(Resource resource)
+	{
+		if (resource instanceof Binary binary)
+			return binary.getContentType();
+		else
+			return "application/fhir+json";
 	}
 }
