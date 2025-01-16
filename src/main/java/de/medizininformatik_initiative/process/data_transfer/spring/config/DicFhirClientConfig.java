@@ -108,7 +108,7 @@ public class DicFhirClientConfig
 	private String fhirStoreOAuth2IssuerUrl;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "The path for oidc discovery protocol", recommendation = "Change default value only if path is differs from the oidc specification")
+			"medizininformatik-initiativede_dataSend" }, description = "The path for oidc discovery protocol", recommendation = "Change default value only if path differs from the oidc specification")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.discovery.path:/.well-known/openid-configuration}")
 	private String fhirStoreOAuth2DiscoveryPath;
 
