@@ -103,9 +103,14 @@ public class DmsFhirClientConfig
 	private String fhirStoreProxyPassword;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "The url of the oidc provider to request access tokens (token endpoint)", example = "http://foo.baz/realms/fhir-realm/protocol/openid-connect/token")
+			"medizininformatik-initiativede_dataReceive" }, description = "The base url of the oidc provider", example = "http://foo.baz/realms/fhir-realm")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.issuer.url:#{null}}")
 	private String fhirStoreOAuth2IssuerUrl;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "The path for oidc discovery protocol", recommendation = "Change default value only if path differs from the oidc specification")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.discovery.path:/.well-known/openid-configuration}")
+	private String fhirStoreOAuth2DiscoveryPath;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Identifier of the client (username) used for authentication when accessing the oidc provider token endpoint")
@@ -146,6 +151,11 @@ public class DmsFhirClientConfig
 			"medizininformatik-initiativede_dataReceive" }, description = "Proxy password, set if the oidc provider can only be reached through a proxy which requests authentication, uses value from DEV_DSF_PROXY_PASSWORD if not set", recommendation = "Use docker secret file to configure by using *${env_variable}_FILE*")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.proxy.password:#{null}}")
 	private String fhirStoreOAuth2ProxyPassword;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "If set to true, OIDC validation will only log a warning and not throw an illegal state exception")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.discovery.validation.lenient:false}")
+	private boolean fhirStoreOAuth2DiscoveryValidationLenient;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "To enable debug logging of FHIR resources set to `true`")
@@ -198,9 +208,10 @@ public class DmsFhirClientConfig
 					: new String(api.getProxyConfig().getPassword());
 		}
 
-		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2ClientId, fhirStoreOAuth2ClientSecret,
-				fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout, trustStoreOAuth2Path, proxyUrl,
-				proxyUsername, proxyPassword);
+		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2DiscoveryPath, fhirStoreOAuth2ClientId,
+				fhirStoreOAuth2ClientSecret, fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout,
+				trustStoreOAuth2Path, proxyUrl, proxyUsername, proxyPassword,
+				fhirStoreOAuth2DiscoveryValidationLenient);
 	}
 
 	public DataLogger dataLogger()

@@ -45,7 +45,7 @@
 		<dependency>
 			<groupId>de.medizininformatik-initiative</groupId>
 			<artifactId>mii-processes-common</artifactId>
-			<version>1.0.3.0</version>
+			<version>1.0.4.0-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
