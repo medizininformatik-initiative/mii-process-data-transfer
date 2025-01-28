@@ -154,8 +154,8 @@ public class DicFhirClientConfig
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataSend" }, description = "If set to true, OIDC validation will only log a warning and not throw an illegal state exception")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.validation.lenient:false}")
-	private boolean fhirStoreOAuth2ConfigurationValidationLenient;
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.discovery.validation.lenient:false}")
+	private boolean fhirStoreOAuth2DiscoveryValidationLenient;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataSend" }, description = "To enable debug logging of FHIR resources set to `true`")
@@ -211,7 +211,7 @@ public class DicFhirClientConfig
 		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2DiscoveryPath, fhirStoreOAuth2ClientId,
 				fhirStoreOAuth2ClientSecret, fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout,
 				trustStoreOAuth2Path, proxyUrl, proxyUsername, proxyPassword,
-				fhirStoreOAuth2ConfigurationValidationLenient);
+				fhirStoreOAuth2DiscoveryValidationLenient);
 	}
 
 	public DataLogger dataLogger()
