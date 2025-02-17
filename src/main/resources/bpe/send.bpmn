@@ -10,22 +10,17 @@
       <bpmn:outgoing>Flow_0yamo5r</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_0yamo5r" sourceRef="ReadData" targetRef="ValidateData" />
-    <bpmn:sequenceFlow id="Flow_0zrvqk8" sourceRef="ValidateData" targetRef="EncryptData" />
-    <bpmn:sequenceFlow id="Flow_109e2pt" sourceRef="StoreDataForManagementSite" targetRef="sendData" />
+    <bpmn:sequenceFlow id="Flow_0zrvqk8" sourceRef="ValidateData" targetRef="EncryptAndStoreData" />
     <bpmn:serviceTask id="ValidateData" name="validate data" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic">
       <bpmn:incoming>Flow_0yamo5r</bpmn:incoming>
       <bpmn:outgoing>Flow_0zrvqk8</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:serviceTask id="EncryptData" name="encrypt data" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.EncryptData">
+    <bpmn:serviceTask id="EncryptAndStoreData" name="encrypt and store data" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.EncryptAndStoreData">
       <bpmn:incoming>Flow_0zrvqk8</bpmn:incoming>
       <bpmn:outgoing>Flow_15vmy2h</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:serviceTask id="StoreDataForManagementSite" name="store data for management site" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.StoreData">
-      <bpmn:incoming>Flow_15vmy2h</bpmn:incoming>
-      <bpmn:outgoing>Flow_109e2pt</bpmn:outgoing>
-    </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_0kkjyst" sourceRef="DataSendMessageStartEvent" targetRef="ReadData" />
-    <bpmn:sequenceFlow id="Flow_15vmy2h" sourceRef="EncryptData" targetRef="StoreDataForManagementSite" />
+    <bpmn:sequenceFlow id="Flow_15vmy2h" sourceRef="EncryptAndStoreData" targetRef="sendData" />
     <bpmn:sequenceFlow id="Flow_0phc02z" sourceRef="deleteData" targetRef="DataSendEndEvent" />
     <bpmn:intermediateCatchEvent id="waitForRetrieval" name="wait">
       <bpmn:incoming>Flow_1txtbeg</bpmn:incoming>
@@ -81,7 +76,7 @@
           <camunda:string>http://medizininformatik-initiative.de/bpe/Process/dataReceive|#{version}</camunda:string>
         </camunda:field>
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_109e2pt</bpmn:incoming>
+      <bpmn:incoming>Flow_15vmy2h</bpmn:incoming>
       <bpmn:outgoing>Flow_00jkdxe</bpmn:outgoing>
     </bpmn:sendTask>
     <bpmn:boundaryEvent id="Event_1d8prc6" attachedToRef="sendData">
@@ -101,52 +96,43 @@
   <bpmn:error id="Error_03kz9w1" name="dataSendError" errorCode="dataSendError" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataSend">
-      <bpmndi:BPMNShape id="Activity_0d04yf5_di" bpmnElement="StoreDataForManagementSite">
-        <dc:Bounds x="790" y="150" width="100" height="80" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1mhzwqb_di" bpmnElement="waitForRetrieval">
-        <dc:Bounds x="1232" y="282" width="36" height="36" />
+        <dc:Bounds x="1062" y="282" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1240" y="323" width="20" height="14" />
+          <dc:Bounds x="1070" y="323" width="20" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1gb5cjp_di" bpmnElement="DataSendEndEvent">
-        <dc:Bounds x="1792" y="172" width="36" height="36" />
+        <dc:Bounds x="1622" y="172" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1778" y="215" width="70" height="27" />
+          <dc:Bounds x="1608" y="215" width="70" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0lwqcb8_di" bpmnElement="deleteData">
-        <dc:Bounds x="1630" y="150" width="100" height="80" />
+        <dc:Bounds x="1460" y="150" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1krcx4x_di" bpmnElement="Gateway_06nlp4x">
-        <dc:Bounds x="1115" y="165" width="50" height="50" />
+        <dc:Bounds x="945" y="165" width="50" height="50" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_04e364z_di" bpmnElement="receiveReceipt">
-        <dc:Bounds x="1232" y="172" width="36" height="36" />
+        <dc:Bounds x="1062" y="172" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1215" y="215" width="72" height="14" />
+          <dc:Bounds x="1045" y="215" width="72" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0byox2n_di" bpmnElement="storeReceipt">
-        <dc:Bounds x="1463" y="150" width="100" height="80" />
+        <dc:Bounds x="1293" y="150" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1g759ob_di" bpmnElement="Gateway_1g759ob" isMarkerVisible="true">
-        <dc:Bounds x="1345" y="165" width="50" height="50" />
+        <dc:Bounds x="1175" y="165" width="50" height="50" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0uaiqis_di" bpmnElement="sendData">
-        <dc:Bounds x="950" y="150" width="100" height="80" />
+        <dc:Bounds x="780" y="150" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_014ar1l_di" bpmnElement="handleErrorSend">
-        <dc:Bounds x="1205" y="40" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_0d1am14_di" bpmnElement="ValidateData">
-        <dc:Bounds x="450" y="150" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_0p0ebgq_di" bpmnElement="ReadData">
-        <dc:Bounds x="280" y="150" width="100" height="80" />
+        <dc:Bounds x="1035" y="40" width="100" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0kggab9_di" bpmnElement="DataSendMessageStartEvent">
         <dc:Bounds x="172" y="172" width="36" height="36" />
@@ -154,75 +140,78 @@
           <dc:Bounds x="154" y="215" width="73" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_0mi94m2_di" bpmnElement="EncryptData">
+      <bpmndi:BPMNShape id="Activity_0p0ebgq_di" bpmnElement="ReadData">
+        <dc:Bounds x="280" y="150" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0d1am14_di" bpmnElement="ValidateData">
+        <dc:Bounds x="450" y="150" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0mi94m2_di" bpmnElement="EncryptAndStoreData">
         <dc:Bounds x="620" y="150" width="100" height="80" />
+        <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1gv1mfg_di" bpmnElement="Event_1d8prc6">
-        <dc:Bounds x="1032" y="132" width="36" height="36" />
+        <dc:Bounds x="862" y="132" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0zrvqk8_di" bpmnElement="Flow_0zrvqk8">
-        <di:waypoint x="550" y="190" />
-        <di:waypoint x="620" y="190" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_15vmy2h_di" bpmnElement="Flow_15vmy2h">
         <di:waypoint x="720" y="190" />
-        <di:waypoint x="790" y="190" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_109e2pt_di" bpmnElement="Flow_109e2pt">
-        <di:waypoint x="890" y="190" />
-        <di:waypoint x="950" y="190" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1txtbeg_di" bpmnElement="Flow_1txtbeg">
-        <di:waypoint x="1140" y="215" />
-        <di:waypoint x="1140" y="300" />
-        <di:waypoint x="1232" y="300" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1c71l1d_di" bpmnElement="Flow_1c71l1d">
-        <di:waypoint x="1268" y="300" />
-        <di:waypoint x="1370" y="300" />
-        <di:waypoint x="1370" y="215" />
+        <di:waypoint x="780" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0phc02z_di" bpmnElement="Flow_0phc02z">
-        <di:waypoint x="1730" y="190" />
-        <di:waypoint x="1792" y="190" />
+        <di:waypoint x="1560" y="190" />
+        <di:waypoint x="1622" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1ms3spx_di" bpmnElement="Flow_1ms3spx">
-        <di:waypoint x="1563" y="190" />
-        <di:waypoint x="1630" y="190" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_00jkdxe_di" bpmnElement="Flow_00jkdxe">
-        <di:waypoint x="1050" y="190" />
-        <di:waypoint x="1115" y="190" />
+        <di:waypoint x="1393" y="190" />
+        <di:waypoint x="1460" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_01bsysq_di" bpmnElement="Flow_01bsysq">
-        <di:waypoint x="1165" y="190" />
-        <di:waypoint x="1232" y="190" />
+        <di:waypoint x="995" y="190" />
+        <di:waypoint x="1062" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1txtbeg_di" bpmnElement="Flow_1txtbeg">
+        <di:waypoint x="970" y="215" />
+        <di:waypoint x="970" y="300" />
+        <di:waypoint x="1062" y="300" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0f4dpy3_di" bpmnElement="Flow_0f4dpy3">
-        <di:waypoint x="1268" y="190" />
-        <di:waypoint x="1345" y="190" />
+        <di:waypoint x="1098" y="190" />
+        <di:waypoint x="1175" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1ktv4jx_di" bpmnElement="Flow_1ktv4jx">
-        <di:waypoint x="1395" y="190" />
-        <di:waypoint x="1463" y="190" />
+        <di:waypoint x="1225" y="190" />
+        <di:waypoint x="1293" y="190" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1gbv2sn_di" bpmnElement="Flow_1gbv2sn">
-        <di:waypoint x="1305" y="80" />
-        <di:waypoint x="1370" y="80" />
-        <di:waypoint x="1370" y="165" />
+      <bpmndi:BPMNEdge id="Flow_1c71l1d_di" bpmnElement="Flow_1c71l1d">
+        <di:waypoint x="1098" y="300" />
+        <di:waypoint x="1200" y="300" />
+        <di:waypoint x="1200" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_00jkdxe_di" bpmnElement="Flow_00jkdxe">
+        <di:waypoint x="880" y="190" />
+        <di:waypoint x="945" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_09xay5j_di" bpmnElement="Flow_09xay5j">
-        <di:waypoint x="1050" y="132" />
-        <di:waypoint x="1050" y="80" />
-        <di:waypoint x="1205" y="80" />
+        <di:waypoint x="880" y="132" />
+        <di:waypoint x="880" y="80" />
+        <di:waypoint x="1035" y="80" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1gbv2sn_di" bpmnElement="Flow_1gbv2sn">
+        <di:waypoint x="1135" y="80" />
+        <di:waypoint x="1200" y="80" />
+        <di:waypoint x="1200" y="165" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0kkjyst_di" bpmnElement="Flow_0kkjyst">
+        <di:waypoint x="208" y="190" />
+        <di:waypoint x="280" y="190" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0yamo5r_di" bpmnElement="Flow_0yamo5r">
         <di:waypoint x="380" y="190" />
         <di:waypoint x="450" y="190" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_0kkjyst_di" bpmnElement="Flow_0kkjyst">
-        <di:waypoint x="208" y="190" />
-        <di:waypoint x="280" y="190" />
+      <bpmndi:BPMNEdge id="Flow_0zrvqk8_di" bpmnElement="Flow_0zrvqk8">
+        <di:waypoint x="550" y="190" />
+        <di:waypoint x="620" y="190" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

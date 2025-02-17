@@ -28,6 +28,7 @@ public interface ConstantsDataTransfer
 	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE = "transferDocumentReference";
 	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION = "transferDocumentReferenceLocation";
 	String BPMN_EXECUTION_VARIABLE_DATA_RESOURCES = "dataResources";
+	String BPMN_EXECUTION_VARIABLE_BINARY_REFERENCES_LIST_RESOURCE = "binaryReferencesListResource";
 
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR = "dataSendError";
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE = "dataSendErrorMessage";
@@ -39,4 +40,6 @@ public interface ConstantsDataTransfer
 	String CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER = "project-identifier";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION = "document-reference-location";
 	String CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS = "data-set-status";
+
+	String EXTENSION_LIST_ENTRY_MIMETYPE = "http://medizininformatik-initiative.de/fhir/StructureDefinition/extension-list-entry-item-mimetype";
 }

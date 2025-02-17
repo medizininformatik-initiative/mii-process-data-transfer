@@ -10,19 +10,16 @@ import org.springframework.context.annotation.Scope;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
-import de.medizininformatik_initiative.process.data_transfer.service.DecryptData;
+import de.medizininformatik_initiative.process.data_transfer.service.DecryptValidateAndInsertData;
 import de.medizininformatik_initiative.process.data_transfer.service.DeleteData;
 import de.medizininformatik_initiative.process.data_transfer.service.DownloadData;
-import de.medizininformatik_initiative.process.data_transfer.service.EncryptData;
+import de.medizininformatik_initiative.process.data_transfer.service.EncryptAndStoreData;
 import de.medizininformatik_initiative.process.data_transfer.service.HandleErrorReceive;
 import de.medizininformatik_initiative.process.data_transfer.service.HandleErrorSend;
-import de.medizininformatik_initiative.process.data_transfer.service.InsertData;
 import de.medizininformatik_initiative.process.data_transfer.service.ReadData;
 import de.medizininformatik_initiative.process.data_transfer.service.SelectTargetDic;
-import de.medizininformatik_initiative.process.data_transfer.service.StoreData;
 import de.medizininformatik_initiative.process.data_transfer.service.StoreReceipt;
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
-import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDms;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProviderImpl;
 import de.medizininformatik_initiative.processes.common.mimetype.CombinedDetectors;
@@ -116,21 +113,14 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ValidateDataDic validateDataDic()
 	{
-		return new ValidateDataDic(api, mimeTypeHelper());
+		return new ValidateDataDic(api, mimeTypeHelper(), dicFhirClientConfig.fhirClientFactory());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public EncryptData encryptData()
+	public EncryptAndStoreData encryptAndStoreData()
 	{
-		return new EncryptData(api, keyProviderDic());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public StoreData storeData()
-	{
-		return new StoreData(api);
+		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory());
 	}
 
 	@Bean
@@ -167,29 +157,16 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DownloadData downloadData()
 	{
-		return new DownloadData(api, dataSetStatusGenerator(), dmsFhirClientConfig.dataLogger());
+		return new DownloadData(api, dataSetStatusGenerator(), fhirBinaryStreamWriteEnabled,
+				dmsFhirClientConfig.dataLogger());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public DecryptData decryptData()
+	public DecryptValidateAndInsertData decryptValidateAndInsertData()
 	{
-		return new DecryptData(api, keyProviderDms(), dataSetStatusGenerator());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public ValidateDataDms validateDataDms()
-	{
-		return new ValidateDataDms(api, mimeTypeHelper(), dataSetStatusGenerator());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public InsertData insertData()
-	{
-		return new InsertData(api, dmsFhirClientConfig.fhirClientFactory(), fhirBinaryStreamWriteEnabled,
-				dataSetStatusGenerator());
+		return new DecryptValidateAndInsertData(api, keyProviderDms(), mimeTypeHelper(),
+				dmsFhirClientConfig.fhirClientFactory(), dataSetStatusGenerator());
 	}
 
 	@Bean

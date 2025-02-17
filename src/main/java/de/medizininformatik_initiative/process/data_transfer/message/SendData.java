@@ -102,8 +102,9 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER),
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER), task.getId(),
 				exception.getMessage());
-		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR,
-				"Send DocumentReference location failed - " + exception.getMessage());
+
+		String error = "Send DocumentReference location failed - " + exception.getMessage();
+		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR, error, exception);
 	}
 
 	@Override

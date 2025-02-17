@@ -94,9 +94,8 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 
 		if (ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK.equals(code))
 		{
-			logger.info(
-					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'",
-					task, projectIdentifier, dmsIdentifier, code);
+			logger.info("Task with id '{}' for DMS '{}' and project-identifier '{}' has data-set status code '{}'",
+					task.getId(), dmsIdentifier, projectIdentifier, code);
 
 			sendSuccessfulMail(task, projectIdentifier, dmsIdentifier, code);
 		}
