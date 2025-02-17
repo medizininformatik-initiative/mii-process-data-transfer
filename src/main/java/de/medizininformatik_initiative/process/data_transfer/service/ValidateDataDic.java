@@ -88,9 +88,9 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 
 	private void validateStream(ListResource list)
 	{
-		list.getEntry().stream().filter(e -> e.hasItem())
+		list.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
-				.forEach(e -> doValidateStream(e));
+				.forEach(this::doValidateStream);
 	}
 
 	private void doValidateStream(ListResource.ListEntryComponent listEntry)

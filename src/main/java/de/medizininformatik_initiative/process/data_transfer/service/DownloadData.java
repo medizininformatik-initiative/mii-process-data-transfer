@@ -80,7 +80,7 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		{
 			DocumentReference documentReference = readDocumentReference(documentReferenceLocation, sendingOrganization,
 					projectIdentifier, task.getId());
-			Stream<DataResource> attachments = readAttachments(documentReference, task.getId());
+			Stream<DataResource> attachments = readAttachments(documentReference);
 			List<Resource> resources = getResources(attachments, sendingOrganization, projectIdentifier, task.getId());
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
@@ -156,15 +156,14 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		return documentReference;
 	}
 
-	private Stream<DataResource> readAttachments(DocumentReference documentReference, String taskId)
+	private Stream<DataResource> readAttachments(DocumentReference documentReference)
 	{
 		return documentReference.getContent().stream()
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
-				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment)
-				.map(a -> readAttachment(a, documentReference.getIdElement(), taskId));
+				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment).map(this::readAttachment);
 	}
 
-	private DataResource readAttachment(Attachment attachment, IdType documentReferenceId, String taskId)
+	private DataResource readAttachment(Attachment attachment)
 	{
 		IdType attachmentId = new IdType(attachment.getUrl());
 

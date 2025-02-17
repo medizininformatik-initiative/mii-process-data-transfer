@@ -35,7 +35,7 @@ public class HandleErrorSend extends AbstractServiceDelegate
 
 		String statusCode = task.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
 				.map(o -> (Coding) o.getValue())
-				.filter(c -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(c.getSystem())).map(c -> c.getCode())
+				.filter(c -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(c.getSystem())).map(Coding::getCode)
 				.findFirst().orElse("unknown");
 
 		String subject = "Error in process '" + ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR + "'";

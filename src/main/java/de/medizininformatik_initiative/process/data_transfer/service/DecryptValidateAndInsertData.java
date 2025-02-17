@@ -161,21 +161,21 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 	}
 
 	private List<ListResource.ListEntryComponent> decryptValidateAndInsertDataStreams(ListResource list,
-			PrivateKey privateKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentidfier)
+			PrivateKey privateKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
 	{
-		return list.getEntry().stream().filter(e -> e.hasItem())
+		return list.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
 				.map(e -> decryptValidateAndInsertDataStream(e, privateKey, sendingOrganizationIdentifier,
-						receivingOrganizationIdentidfier))
+						receivingOrganizationIdentifier))
 				.toList();
 	}
 
 	private ListResource.ListEntryComponent decryptValidateAndInsertDataStream(ListResource.ListEntryComponent item,
-			PrivateKey privateKey, String sendingOrganizationIdentifier, String receivinOrganizationIdentidfier)
+			PrivateKey privateKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
 	{
 		String mimeType = getMimeType(item);
 		InputStream inputStream = decryptDataStream(item, privateKey, sendingOrganizationIdentifier,
-				receivinOrganizationIdentidfier);
+				receivingOrganizationIdentifier);
 		validateDataStream(inputStream, mimeType);
 		return insertDataStream(inputStream, mimeType);
 	}

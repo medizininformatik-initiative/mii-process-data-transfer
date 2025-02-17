@@ -28,7 +28,6 @@ public interface ConstantsDataTransfer
 	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE = "transferDocumentReference";
 	String BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION = "transferDocumentReferenceLocation";
 	String BPMN_EXECUTION_VARIABLE_DATA_RESOURCES = "dataResources";
-	String BPMN_EXECUTION_VARIABLE_BINARY_REFERENCES_LIST_RESOURCE = "binaryReferencesListResource";
 
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR = "dataSendError";
 	String BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE = "dataSendErrorMessage";

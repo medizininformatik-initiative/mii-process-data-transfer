@@ -303,22 +303,22 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 	}
 
 	private List<ListResource.ListEntryComponent> encryptAndStoreDataStreams(ListResource list, PublicKey publicKey,
-			String sendingOrganizationIdentifier, String receivingOrganizationIdentidfier, String securityContext)
+			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier, String securityContext)
 	{
-		return list.getEntry().stream().filter(e -> e.hasItem())
+		return list.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
 				.map(e -> encryptAndStoreDataStream(e, publicKey, sendingOrganizationIdentifier,
-						receivingOrganizationIdentidfier, securityContext))
+						receivingOrganizationIdentifier, securityContext))
 				.toList();
 	}
 
 	private ListResource.ListEntryComponent encryptAndStoreDataStream(ListResource.ListEntryComponent item,
-			PublicKey publicKey, String sendingOrganizationIdentifier, String receivinOrganizationIdentidfier,
+			PublicKey publicKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier,
 			String securityContext)
 	{
 		String mimeType = getMimeType(item);
 		InputStream stream = encryptDataStream(item, publicKey, sendingOrganizationIdentifier,
-				receivinOrganizationIdentidfier);
+				receivingOrganizationIdentifier);
 		return storeBinaryStream(stream, mimeType, securityContext);
 	}
 
