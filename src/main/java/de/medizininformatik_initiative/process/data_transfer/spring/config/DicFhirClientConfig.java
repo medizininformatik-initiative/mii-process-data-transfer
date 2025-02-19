@@ -152,6 +152,11 @@ public class DicFhirClientConfig
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.dataLoggingEnabled:false}")
 	private boolean fhirDataLoggingEnabled;
 
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "To enable an additional connection test on startup of the client reading Binary resources as stream, set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.client.connection.test.enabled:false}")
+	private boolean fhirBinaryStreamClientConnectionTestEnabled;
+
 	@Value("${dev.dsf.bpe.fhir.server.organization.identifier.value}")
 	private String localIdentifierValue;
 
@@ -172,10 +177,14 @@ public class DicFhirClientConfig
 					: new String(api.getProxyConfig().getPassword());
 		}
 
+		// Async client never used in this process, therefore setting connection test to false
+		// and initial polling interval to default value
 		return new FhirClientFactory(trustStorePath, certificatePath, privateKeyPath, fhirStorePrivateKeyPassword,
 				fhirStoreConnectTimeout, fhirStoreSocketTimeout, fhirStoreConnectionRequestTimeout, fhirStoreBaseUrl,
 				fhirStoreUsername, fhirStorePassword, fhirStoreBearerToken, tokenProvider(), proxyUrl, proxyUsername,
-				proxyPassword, fhirStoreHapiClientVerbose, 5, fhirContext, localIdentifierValue, dataLogger());
+				proxyPassword, fhirStoreHapiClientVerbose,
+				FhirClientFactory.DEFAULT_INITIAL_POLLING_INTERVAL_MILLISECONDS, fhirContext, localIdentifierValue,
+				dataLogger(), false, fhirBinaryStreamClientConnectionTestEnabled);
 	}
 
 	public TokenProvider tokenProvider()
