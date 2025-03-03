@@ -47,6 +47,11 @@ public class TransferDataConfig
 	private boolean fhirBinaryStreamReadEnabled;
 
 	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "If the DIC FHIR server is a HAPI FHIR server and uses external storage for Binary resources via the ENV variable `HAPI_FHIR_BINARY_STORAGE_ENABLED`, set this ENV variable as well to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.use.hapi.blob.storage.operation:false}")
+	private boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
+
+	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "To enable stream processing when writing Binary resources set to `true`")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.binary.stream.write.enabled:false}")
 	private boolean fhirBinaryStreamWriteEnabled;
@@ -113,14 +118,16 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ValidateDataDic validateDataDic()
 	{
-		return new ValidateDataDic(api, mimeTypeHelper(), dicFhirClientConfig.fhirClientFactory());
+		return new ValidateDataDic(api, mimeTypeHelper(), dicFhirClientConfig.fhirClientFactory(),
+				fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public EncryptAndStoreData encryptAndStoreData()
 	{
-		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory());
+		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory(),
+				fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean

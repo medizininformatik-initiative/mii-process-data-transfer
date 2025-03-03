@@ -51,12 +51,15 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 
 	private final KeyProvider keyProvider;
 	private final FhirClientFactory fhirClientFactory;
+	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 
-	public EncryptAndStoreData(ProcessPluginApi api, KeyProvider keyProvider, FhirClientFactory fhirClientFactory)
+	public EncryptAndStoreData(ProcessPluginApi api, KeyProvider keyProvider, FhirClientFactory fhirClientFactory,
+			boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
 	{
 		super(api);
 		this.keyProvider = keyProvider;
 		this.fhirClientFactory = fhirClientFactory;
+		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	}
 
 	@Override
@@ -338,7 +341,8 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 			IdType url = (IdType) listEntry.getItem().getReferenceElement();
 			String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-			InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype);
+			InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
+					fhirBinaryStreamReadUseHapiBlobStorageOperation);
 
 			return RsaAesGcmUtil.encrypt(publicKey, stream, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);

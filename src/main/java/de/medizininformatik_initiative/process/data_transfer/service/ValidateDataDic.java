@@ -26,12 +26,15 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 
 	private final MimeTypeHelper mimeTypeHelper;
 	private final FhirClientFactory fhirClientFactory;
+	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 
-	public ValidateDataDic(ProcessPluginApi api, MimeTypeHelper mimeTypeHelper, FhirClientFactory fhirClientFactory)
+	public ValidateDataDic(ProcessPluginApi api, MimeTypeHelper mimeTypeHelper, FhirClientFactory fhirClientFactory,
+			boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
 	{
 		super(api);
 		this.mimeTypeHelper = mimeTypeHelper;
 		this.fhirClientFactory = fhirClientFactory;
+		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	}
 
 	@Override
@@ -98,7 +101,8 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 		IdType url = (IdType) listEntry.getItem().getReferenceElement();
 		String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-		InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype);
+		InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
+				fhirBinaryStreamReadUseHapiBlobStorageOperation);
 		mimeTypeHelper.validate(stream, mimetype);
 	}
 }
