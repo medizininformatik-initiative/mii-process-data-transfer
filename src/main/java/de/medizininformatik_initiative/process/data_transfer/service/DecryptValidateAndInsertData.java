@@ -77,7 +77,7 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		Task task = variables.getStartTask();
 
 		List<Resource> encryptedResources = variables
-				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
+				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES);
 		String localOrganizationIdentifier = getLocalOrganizationIdentifier();
 		String sendingOrganizationIdentifier = getSendingOrganizationIdentifier(variables);
 		String projectIdentifier = variables

@@ -48,7 +48,7 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		if (!currentTask.getId().equals(startTask.getId()))
 			handleReceivedResponse(startTask, currentTask);
 		else if (Task.TaskStatus.INPROGRESS.equals(startTask.getStatus()))
-			handleMissingResponse(startTask);
+			handleMissingResponse(startTask, variables);
 
 		writeStatusLogAndSendMail(startTask, projectIdentifier, dmsIdentifier);
 
@@ -68,13 +68,17 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 			startTask.setStatus(Task.TaskStatus.FAILED);
 	}
 
-	private void handleMissingResponse(Task startTask)
+	private void handleMissingResponse(Task startTask, Variables variables)
 	{
-		startTask.setStatus(Task.TaskStatus.FAILED);
-		startTask.addOutput(statusGenerator.createDataSetStatusOutput(
-				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+		// only add receipt-missing if data could be sent to DMS
+		if (variables.getVariable(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR) == null)
+		{
+			startTask.setStatus(Task.TaskStatus.FAILED);
+			startTask.addOutput(statusGenerator.createDataSetStatusOutput(
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+		}
 	}
 
 	private void writeStatusLogAndSendMail(Task startTask, String projectIdentifier, String dmsIdentifier)

@@ -77,7 +77,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER, dmsIdentifier);
 			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
 					documentReference);
-			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES, resources);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
 		}
 		catch (Exception exception)
 		{

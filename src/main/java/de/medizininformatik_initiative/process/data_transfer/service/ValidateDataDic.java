@@ -59,7 +59,7 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 		try
 		{
 			List<Resource> resources = variables
-					.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCES);
+					.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
 			resources.forEach(this::validate);
 		}
 		catch (Exception exception)

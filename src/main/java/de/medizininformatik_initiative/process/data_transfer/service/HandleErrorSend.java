@@ -38,7 +38,7 @@ public class HandleErrorSend extends AbstractServiceDelegate
 				.filter(c -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(c.getSystem())).map(Coding::getCode)
 				.findFirst().orElse("unknown");
 
-		String subject = "Error in process '" + ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR + "'";
+		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "Could not send DocumentReference with attachments in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
 				+ "' to DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier

@@ -127,7 +127,7 @@ public class TransferDataConfig
 	public EncryptAndStoreData encryptAndStoreData()
 	{
 		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory(),
-				fhirBinaryStreamReadUseHapiBlobStorageOperation);
+				dataSetStatusGenerator(), fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean
