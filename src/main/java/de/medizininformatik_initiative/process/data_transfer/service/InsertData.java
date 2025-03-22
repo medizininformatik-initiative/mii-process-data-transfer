@@ -4,17 +4,18 @@ import static org.hl7.fhir.r4.model.DocumentReference.ReferredDocumentStatus.FIN
 import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT;
 
 import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.hl7.fhir.instance.model.api.IBaseBundle;
 import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
-import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
@@ -22,8 +23,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
+import ca.uhn.fhir.rest.client.api.IGenericClient;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
+import de.medizininformatik_initiative.processes.common.fhir.client.StandardFhirClient;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
@@ -66,6 +69,8 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 		Bundle bundle = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET);
+
+		StandardFhirClient fhirClient = fhirClientFactory.getStandardFhirClient();
 
 		logger.info(
 				"Inserting data-set on FHIR server with baseUrl '{}' received from organization '{}' for project-identifier '{}' in Task with id '{}'",
@@ -137,17 +142,8 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 	private IdType createOrUpdateDocumentReference(String sendingOrganization, String projectIdentifier,
 			IdType binaryIdType, String mimeType, Task task)
 	{
-		Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
-				.forResource(DocumentReference.class)
-				.where(DocumentReference.IDENTIFIER.exactly()
-						.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
-				.and(DocumentReference.AUTHOR.hasChainedProperty(Organization.IDENTIFIER.exactly()
-						.systemAndCode(NamingSystems.OrganizationIdentifier.SID, sendingOrganization)))
-				.returnBundle(Bundle.class).execute();
-
-		List<DocumentReference> existingDocumentReferences = searchResult.getEntry().stream()
-				.filter(Bundle.BundleEntryComponent::hasResource).map(Bundle.BundleEntryComponent::getResource)
-				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
+		List<DocumentReference> existingDocumentReferences = searchExistingDocumentReferences(sendingOrganization,
+				projectIdentifier, task.getId());
 
 		if (existingDocumentReferences.size() < 1)
 		{
@@ -166,7 +162,6 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 			logger.info(
 					"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with baseUrl '{}' in Task with id '{}'",
 					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
-
 			return updateDocumentReference(existingDocumentReferences.get(0), binaryIdType, mimeType);
 		}
 	}
@@ -197,6 +192,48 @@ public class InsertData extends AbstractServiceDelegate implements InitializingB
 				.withId(documentReference.getIdElement().getIdPart()).execute();
 
 		return setIdBase(documentReference.getIdElement());
+	}
+
+	private List<DocumentReference> searchExistingDocumentReferences(String sendingOrganization,
+			String projectIdentifier, String taskId)
+	{
+		IGenericClient fhirClient = fhirClientFactory.getStandardFhirClient().getGenericFhirClient();
+
+		// workaround since not all fhir server used in MII support DocumentReference.author:identifier or
+		// DocumentReference.author:Organization.identifier search parameters. Therefore filtering for author
+		// after loading all DocumentReferences for given project-identifier
+		try
+		{
+			List<Bundle.BundleEntryComponent> entries = new ArrayList<>();
+
+			Bundle searchResult = fhirClient.search().forResource(DocumentReference.class)
+					.where(DocumentReference.IDENTIFIER.exactly()
+							.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
+					.returnBundle(Bundle.class).execute();
+			entries.addAll(searchResult.getEntry());
+
+			while (searchResult.getLink(IBaseBundle.LINK_NEXT) != null)
+			{
+				searchResult = fhirClient.loadPage().next(searchResult).execute();
+				entries.addAll(searchResult.getEntry());
+			}
+
+			return entries.stream().filter(Bundle.BundleEntryComponent::hasResource)
+					.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof DocumentReference)
+					.map(r -> (DocumentReference) r)
+					.filter(d -> d.getAuthor().stream().anyMatch(a -> a.hasIdentifier()
+							&& NamingSystems.OrganizationIdentifier.SID.equals(a.getIdentifier().getSystem())
+							&& sendingOrganization != null && sendingOrganization.equals(a.getIdentifier().getValue())))
+					.toList();
+		}
+		catch (Exception exception)
+		{
+			logger.warn(
+					"Error while searching for existing DocumentReferences for project-identifier '{}' authored by '{}' on FHIR server with baseUrl '{}' in Task with id '{}'- {}",
+					projectIdentifier, sendingOrganization, fhirClientFactory.getStandardFhirClient().getFhirBaseUrl(),
+					taskId, exception.getMessage());
+			return List.of();
+		}
 	}
 
 	private void sendMail(Task task, List<IdType> createdIds, String sendingOrganization, String projectIdentifier)
