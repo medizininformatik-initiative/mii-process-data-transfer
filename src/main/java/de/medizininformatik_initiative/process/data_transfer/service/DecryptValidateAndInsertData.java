@@ -13,12 +13,12 @@ import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.hl7.fhir.instance.model.api.IBaseBundle;
 import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.ListResource;
-import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StringType;
@@ -292,19 +292,8 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 	private IdType createOrUpdateDocumentReference(String sendingOrganization, String projectIdentifier,
 			ListResource resourceReferencesList, Task task)
 	{
-		Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
-				.forResource(DocumentReference.class)
-				.where(DocumentReference.IDENTIFIER.exactly()
-						.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
-				.and(DocumentReference.AUTHOR
-						.hasChainedProperty("Organization",
-								Organization.IDENTIFIER.exactly()
-										.systemAndCode(NamingSystems.OrganizationIdentifier.SID, sendingOrganization)))
-				.returnBundle(Bundle.class).execute();
-
-		List<DocumentReference> existingDocumentReferences = searchResult.getEntry().stream()
-				.filter(Bundle.BundleEntryComponent::hasResource).map(Bundle.BundleEntryComponent::getResource)
-				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
+		List<DocumentReference> existingDocumentReferences = searchExistingDocumentReferences(sendingOrganization,
+				projectIdentifier, task.getId());
 
 		if (existingDocumentReferences.size() < 1)
 		{
@@ -326,6 +315,48 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), task.getId());
 
 			return updateDocumentReference(existingDocumentReferences.get(0), resourceReferencesList);
+		}
+	}
+
+	private List<DocumentReference> searchExistingDocumentReferences(String sendingOrganization,
+			String projectIdentifier, String taskId)
+	{
+		// workaround since not all fhir server used in MII support DocumentReference.author:identifier or
+		// DocumentReference.author:Organization.identifier search parameters. Therefore, filtering for author
+		// after loading all DocumentReferences for given project-identifier
+		try
+		{
+			List<Bundle.BundleEntryComponent> entries = new ArrayList<>();
+
+			Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
+					.forResource(DocumentReference.class)
+					.where(DocumentReference.IDENTIFIER.exactly()
+							.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
+					.returnBundle(Bundle.class).execute();
+			entries.addAll(searchResult.getEntry());
+
+			while (searchResult.getLink(IBaseBundle.LINK_NEXT) != null)
+			{
+				searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().loadPage()
+						.next(searchResult).execute();
+				entries.addAll(searchResult.getEntry());
+			}
+
+			return entries.stream().filter(Bundle.BundleEntryComponent::hasResource)
+					.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof DocumentReference)
+					.map(r -> (DocumentReference) r)
+					.filter(d -> d.getAuthor().stream().anyMatch(a -> a.hasIdentifier()
+							&& NamingSystems.OrganizationIdentifier.SID.equals(a.getIdentifier().getSystem())
+							&& sendingOrganization != null && sendingOrganization.equals(a.getIdentifier().getValue())))
+					.toList();
+		}
+		catch (Exception exception)
+		{
+			logger.warn(
+					"Error while searching for existing DocumentReferences for project-identifier '{}' authored by '{}' on FHIR server with baseUrl '{}' in Task with id '{}'- {}",
+					projectIdentifier, sendingOrganization, fhirClientFactory.getFhirBaseUrl(), taskId,
+					exception.getMessage());
+			return List.of();
 		}
 	}
 
