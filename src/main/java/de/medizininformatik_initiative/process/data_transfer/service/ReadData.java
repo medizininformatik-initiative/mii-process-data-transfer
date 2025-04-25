@@ -205,11 +205,24 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	private List<Resource> getResources(Stream<DataResource> dataResources, String dmsIdentifier,
 			String projectIdentifier, String taskId)
 	{
-		return dataResources.map(this::getResource).filter(Objects::nonNull)
+		List<Resource> resources = dataResources.map(this::getResource).filter(Objects::nonNull).toList();
+
+		return combineListResources(resources)
 				.peek(r -> dataLogger.logResource("Read attachment for DMS '" + dmsIdentifier
 						+ "' and project-identifier '" + projectIdentifier + "' on FHIR store with baseURL '"
 						+ fhirClientFactory.getFhirBaseUrl() + "' referenced in Task with id '" + taskId + "'", r))
 				.toList();
+	}
+
+	private Stream<Resource> combineListResources(List<Resource> resources)
+	{
+		ListResource listResource = new ListResource()
+				.setEntry(resources.stream().filter(r -> r instanceof ListResource).map(l -> ((ListResource) l))
+						.flatMap(l -> l.getEntry().stream()).toList());
+
+		Stream<Resource> notListResources = resources.stream().filter(r -> !(r instanceof ListResource));
+
+		return Stream.concat(notListResources, Stream.of(listResource));
 	}
 
 	private Resource getResource(DataResource attachment)

@@ -101,7 +101,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 			DocumentReference transferDocumentReference = createAndStoreDocumentReference(projectIdentifier,
 					initialDocumentReference, dmsIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
-					getDsfFhirStoreAbsoluteId(transferDocumentReference.getIdElement()));
+					getDsfFhirServerAbsoluteId(transferDocumentReference.getIdElement()));
 
 			encryptAndStoreData(transferDocumentReference, transferBinaryReferenceList, resources, publicKey,
 					localOrganizationIdentifier, dmsIdentifier);
@@ -110,11 +110,12 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 
 			transferDocumentReference = updateDocumentReference(transferDocumentReference, transferBinaryReferenceList);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
-					getDsfFhirStoreAbsoluteId(transferDocumentReference.getIdElement()));
+					getDsfFhirServerAbsoluteId(transferDocumentReference.getIdElement()));
 
 			logger.info(
 					"Stored DocumentReference with id '{}' provided for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
 					transferDocumentReference.getId(), dmsIdentifier, projectIdentifier, task.getId());
+			sendMail(task, projectIdentifier, dmsIdentifier, transferDocumentReference.getIdElement());
 
 			Target target = createTarget(variables, dmsIdentifier);
 			variables.setTarget(target);
@@ -307,7 +308,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 			Resource resource, PublicKey publicKey, String sendingOrganizationIdentifier,
 			String receivingOrganizationIdentifier)
 	{
-		String securityContext = getDsfFhirStoreAbsoluteId(documentReference.getIdElement());
+		String securityContext = getDsfFhirServerAbsoluteId(documentReference.getIdElement());
 
 		if (resource instanceof ListResource listResource)
 			encryptAndStoreDataStreams(listResource, transferBinaryReferenceList, publicKey,
@@ -439,7 +440,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 	private ListResource.ListEntryComponent createListEntryComponent(IdType id, String mimetype)
 	{
 		ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
-		entry.getItem().setReference(getDsfFhirStoreAbsoluteId(id));
+		entry.getItem().setReference(getDsfFhirServerAbsoluteId(id));
 		entry.addExtension().setUrl(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)
 				.setValue(new StringType(mimetype));
 
@@ -468,9 +469,21 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		return item.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 	}
 
-	private String getDsfFhirStoreAbsoluteId(IdType idType)
+	private String getDsfFhirServerAbsoluteId(IdType idType)
 	{
 		return new IdType(api.getFhirWebserviceClientProvider().getLocalWebserviceClient().getBaseUrl(),
 				idType.getResourceType(), idType.getIdPart(), idType.getVersionIdPart()).getValue();
+	}
+
+	private void sendMail(Task task, String projectIdentifier, String dmsIdentifier, IdType documentReferenceIdType)
+	{
+		String subject = "Data-set provided in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
+		String message = "A data-set has been successfully provided in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task with id '" + task.getId()
+				+ "' for DMS '" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
+				+ "' and can be accessed using the following url:\n" + "- "
+				+ getDsfFhirServerAbsoluteId(documentReferenceIdType);
+
+		api.getMailService().send(subject, message);
 	}
 }
