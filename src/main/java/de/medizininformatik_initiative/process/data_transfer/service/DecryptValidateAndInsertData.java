@@ -195,7 +195,7 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		try
 		{
 			IdType url = (IdType) listEntry.getItem().getReferenceElement();
-			String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
+			String mimetype = getMimeType(listEntry);
 
 			InputStream stream = api.getFhirWebserviceClientProvider().getWebserviceClient(url.getBaseUrl())
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
