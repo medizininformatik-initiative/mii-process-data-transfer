@@ -222,7 +222,10 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 
 		Stream<Resource> notListResources = resources.stream().filter(r -> !(r instanceof ListResource));
 
-		return Stream.concat(notListResources, Stream.of(listResource));
+		if (!listResource.getEntry().isEmpty())
+			return Stream.concat(notListResources, Stream.of(listResource));
+		else
+			return notListResources;
 	}
 
 	private Resource getResource(DataResource attachment)
