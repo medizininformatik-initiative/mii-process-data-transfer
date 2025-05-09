@@ -60,8 +60,8 @@ public class DeleteData extends AbstractServiceDelegate
 					dmsIdentifier, projectIdentifier, task.getId(), transferDocumentReferenceLocation,
 					exception.getMessage());
 
-			String error = "Permanently deleting encrypted data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Permanently deleting encrypted data-set failed - " + exception.getMessage(),
+					exception);
 		}
 	}
 

@@ -185,8 +185,7 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 			}
 			catch (Exception exception)
 			{
-				String error = "Downloading attachment failed - " + exception.getMessage();
-				throw new RuntimeException(error, exception);
+				throw new RuntimeException("Downloading attachment failed - " + exception.getMessage(), exception);
 			}
 		}
 	}

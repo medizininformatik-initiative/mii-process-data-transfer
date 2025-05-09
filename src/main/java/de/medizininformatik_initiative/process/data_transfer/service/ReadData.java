@@ -86,8 +86,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 					fhirClientFactory.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId(),
 					exception.getMessage());
 
-			String error = "Reading data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Reading data-set failed - " + exception.getMessage(), exception);
 		}
 	}
 

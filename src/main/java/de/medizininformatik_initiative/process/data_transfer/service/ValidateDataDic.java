@@ -68,8 +68,7 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 					"Could not validate data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
 
-			String error = "Validating data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Validating data-set failed - " + exception.getMessage(), exception);
 		}
 	}
 
