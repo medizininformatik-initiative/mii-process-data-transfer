@@ -297,7 +297,7 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		List<DocumentReference> existingDocumentReferences = searchExistingDocumentReferences(sendingOrganization,
 				projectIdentifier, task.getId());
 
-		if (existingDocumentReferences.size() < 1)
+		if (existingDocumentReferences.isEmpty())
 		{
 			logger.info(
 					"DocumentReference for project-identifier '{}' authored by '{}' does not exist yet, creating a new one on FHIR server with baseUrl '{}' referenced in Task with id '{}'",
@@ -328,15 +328,13 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		// after loading all DocumentReferences for given project-identifier
 		try
 		{
-			List<Bundle.BundleEntryComponent> entries = new ArrayList<>();
-
 			Bundle searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().search()
 					.forResource(DocumentReference.class)
 					.where(DocumentReference.IDENTIFIER.exactly()
 							.systemAndCode(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier))
 					.returnBundle(Bundle.class).execute();
-			entries.addAll(searchResult.getEntry());
 
+			List<Bundle.BundleEntryComponent> entries = new ArrayList<>(searchResult.getEntry());
 			while (searchResult.getLink(IBaseBundle.LINK_NEXT) != null)
 			{
 				searchResult = fhirClientFactory.getStandardFhirClient().getGenericFhirClient().loadPage()

@@ -182,7 +182,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 				.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof DocumentReference)
 				.map(r -> (DocumentReference) r).toList();
 
-		if (documentReferences.size() < 1)
+		if (documentReferences.isEmpty())
 			throw new IllegalArgumentException("Could not find any DocumentReference in PublicKey Bundle");
 
 		if (documentReferences.size() > 1)
@@ -198,7 +198,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		List<Binary> binaries = bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
 				.filter(r -> r instanceof Binary).map(b -> (Binary) b).toList();
 
-		if (binaries.size() < 1)
+		if (binaries.isEmpty())
 			throw new IllegalArgumentException("Could not find any Binary in PublicKey Bundle");
 
 		if (binaries.size() > 1)
@@ -229,7 +229,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		long numberOfHashes = documentReference.getContent().stream()
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
 				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment).filter(Attachment::hasHash)
-				.map(Attachment::getHash).count();
+				.count();
 
 		if (numberOfHashes < 1)
 			throw new RuntimeException("Could not find any sha256-hash in DocumentReference of PublicKey Bundle");

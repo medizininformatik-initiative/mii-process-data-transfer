@@ -99,7 +99,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
 				.map(Identifier::getValue).toList();
 
-		if (identifiers.size() < 1)
+		if (identifiers.isEmpty())
 			throw new IllegalArgumentException("No project-identifier present in Task.input");
 
 		if (identifiers.size() > 1)
@@ -127,7 +127,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
 				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
 
-		if (documentReferences.size() < 1)
+		if (documentReferences.isEmpty())
 			throw new IllegalArgumentException("Could not find any DocumentReference with matching project-identifier");
 
 		if (documentReferences.size() > 1)
