@@ -16,7 +16,6 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
@@ -127,7 +126,7 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 				.map(Task.ParameterComponent::getValue).filter(i -> i instanceof Reference).map(i -> (Reference) i)
 				.filter(Reference::hasReference).map(Reference::getReference).toList();
 
-		if (dataSetReferences.size() < 1)
+		if (dataSetReferences.isEmpty())
 			throw new IllegalArgumentException("No DocumentReference reference present in Task.input");
 
 		if (dataSetReferences.size() > 1)
@@ -171,15 +170,15 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 				.getWebserviceClient(attachmentId.getBaseUrl())
 				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN);
 
-		if (ResourceType.Binary.name().equals(attachmentId.getResourceType()) && fhirBinaryStreamWriteEnabled)
+		String mimetype = getAttachmentMimeType(attachment);
+		if (fhirBinaryStreamWriteEnabled && !isMimetypeFhir(mimetype))
 		{
-			String mimetype = getAttachmentMimeType(attachment);
 			return DataResource.of(attachmentId, mimetype);
 		}
 		else
 		{
 			try (InputStream binary = readBinaryResource(client, attachmentId.getIdPart(),
-					attachmentId.getVersionIdPart(), attachment.getContentType()))
+					attachmentId.getVersionIdPart()))
 			{
 				return DataResource
 						.of(new Binary().setData(binary.readAllBytes()).setContentType(attachment.getContentType()));
@@ -199,12 +198,13 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 						"Could not find any attachment contentType (mimeType) in DocumentReference"));
 	}
 
-	private InputStream readBinaryResource(BasicFhirWebserviceClient client, String id, String version, String mimeType)
+	private InputStream readBinaryResource(BasicFhirWebserviceClient client, String id, String version)
 	{
+		MediaType mediaType = MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM);
 		if (version != null && !version.isEmpty())
-			return client.readBinary(id, version, MediaType.valueOf(mimeType));
+			return client.readBinary(id, version, mediaType);
 		else
-			return client.readBinary(id, MediaType.valueOf(mimeType));
+			return client.readBinary(id, mediaType);
 	}
 
 	private List<Resource> getResources(Stream<DataResource> dataResources, String sendingOrganization,
@@ -220,7 +220,7 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 
 	private Resource getResource(DataResource attachment)
 	{
-		if (attachment.hasStreamLocation() && fhirBinaryStreamWriteEnabled)
+		if (attachment.hasStreamLocation())
 		{
 			ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
 
@@ -234,5 +234,10 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 			return attachment.resource();
 		else
 			throw new RuntimeException("Data not available as resource or stream");
+	}
+
+	private boolean isMimetypeFhir(String mimetype)
+	{
+		return "application/fhir+xml".equals(mimetype) || "application/fhir+json".equals(mimetype);
 	}
 }

@@ -332,8 +332,10 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 			ListResource transferBinaryReferenceList, PublicKey publicKey, String sendingOrganizationIdentifier,
 			String receivingOrganizationIdentifier, String securityContext)
 	{
-		String mimeType = getMimeType(item);
-		InputStream stream = encryptDataStream(item, publicKey, sendingOrganizationIdentifier,
+		IdType url = (IdType) item.getItem().getReferenceElement();
+		String mimeType = item.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
+
+		InputStream stream = encryptDataStream(url, mimeType, publicKey, sendingOrganizationIdentifier,
 				receivingOrganizationIdentifier);
 		storeBinaryStream(stream, mimeType, securityContext, transferBinaryReferenceList);
 	}
@@ -347,14 +349,11 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		storeBinaryResource(binaryResource, securityContext, transferBinaryReferenceList);
 	}
 
-	private InputStream encryptDataStream(ListResource.ListEntryComponent listEntry, PublicKey publicKey,
+	private InputStream encryptDataStream(IdType url, String mimetype, PublicKey publicKey,
 			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
 	{
 		try
 		{
-			IdType url = (IdType) listEntry.getItem().getReferenceElement();
-			String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
-
 			InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
 					fhirBinaryStreamReadUseHapiBlobStorageOperation);
 
@@ -377,8 +376,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 			byte[] encrypted = RsaAesGcmUtil.encrypt(publicKey, toEncrypt, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
 
-			String mimeType = getMimeType(resource);
-			return new Binary().setData(encrypted).setContentType(mimeType);
+			return new Binary().setData(encrypted).setContentType(getMimeType(resource));
 		}
 		catch (Exception exception)
 		{
@@ -390,10 +388,9 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 	private void storeBinaryStream(InputStream inputStream, String mimeType, String securityContext,
 			ListResource transferBinaryReferenceList)
 	{
-		MediaType mediaType = MediaType.valueOf(mimeType);
-
 		try (InputStream in = inputStream)
 		{
+			MediaType mediaType = MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM);
 			IdType id = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
 					.createBinary(in, mediaType, securityContext).getIdElement();
@@ -452,21 +449,8 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		if (resource instanceof Binary binary)
 			return binary.getData();
 		else
-			return api.getFhirContext().newJsonParser().encodeResourceToString(resource)
+			return api.getFhirContext().newXmlParser().encodeResourceToString(resource)
 					.getBytes(StandardCharsets.UTF_8);
-	}
-
-	private String getMimeType(Resource resource)
-	{
-		if (resource instanceof Binary binary)
-			return binary.getContentType();
-		else
-			return "application/fhir+json";
-	}
-
-	private String getMimeType(ListResource.ListEntryComponent item)
-	{
-		return item.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 	}
 
 	private String getDsfFhirServerAbsoluteId(IdType idType)
@@ -485,5 +469,13 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 				+ getDsfFhirServerAbsoluteId(documentReferenceIdType);
 
 		api.getMailService().send(subject, message);
+	}
+
+	private String getMimeType(Resource resource)
+	{
+		if (resource instanceof Binary binary)
+			return binary.getContentType();
+		else
+			return "application/fhir+xml";
 	}
 }

@@ -195,11 +195,10 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		try
 		{
 			IdType url = (IdType) listEntry.getItem().getReferenceElement();
-			String mimetype = getMimeType(listEntry);
 
 			InputStream stream = api.getFhirWebserviceClientProvider().getWebserviceClient(url.getBaseUrl())
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-					.readBinary(url.getIdPart(), MediaType.valueOf(mimetype));
+					.readBinary(url.getIdPart(), MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
 
 			return RsaAesGcmUtil.decrypt(privateKey, stream, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
@@ -282,7 +281,10 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 
 	private Resource getResourceFromBytes(byte[] data, String mimeType)
 	{
-		if ("application/fhir+json".equals(mimeType))
+		if ("application/fhir+xml".equals(mimeType))
+			return (Resource) api.getFhirContext().newXmlParser()
+					.parseResource(new String(data, StandardCharsets.UTF_8));
+		else if ("application/fhir+json".equals(mimeType))
 			return (Resource) api.getFhirContext().newJsonParser()
 					.parseResource(new String(data, StandardCharsets.UTF_8));
 		else
@@ -407,7 +409,7 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		if (resource instanceof Binary binary)
 			return binary.getContentType();
 		else
-			return "application/fhir+json";
+			return "application/fhir+xml";
 	}
 
 	private String getMimeType(ListResource.ListEntryComponent item)
