@@ -198,12 +198,17 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 		{
 			IdType url = (IdType) listEntry.getItem().getReferenceElement();
 
-			InputStream stream = api.getFhirWebserviceClientProvider().getWebserviceClient(url.getBaseUrl())
+			InputStream inputStream = api.getFhirWebserviceClientProvider().getWebserviceClient(url.getBaseUrl())
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
 					.readBinary(url.getIdPart(), MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
 
-			return RsaAesGcmUtil.decrypt(privateKey, stream, sendingOrganizationIdentifier,
+			inputStream = RsaAesGcmUtil.decrypt(privateKey, inputStream, sendingOrganizationIdentifier,
 					receivingOrganizationIdentifier);
+
+			if (!inputStream.markSupported())
+				inputStream = new BufferedInputStream(inputStream);
+
+			return inputStream;
 		}
 		catch (Exception exception)
 		{
@@ -232,9 +237,6 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 
 	private void validateDataStream(InputStream inputStream, String mimeType)
 	{
-		if (!inputStream.markSupported())
-			inputStream = new BufferedInputStream(inputStream);
-
 		try
 		{
 			mimeTypeHelper.validate(inputStream, mimeType);
