@@ -10,6 +10,3 @@
 **/*.iml
 
 **/dependency-reduced-pom.xml
-
-src/test/resources/fhir/Bundle/result.ndjson
-src/test/resources/fhir/Bundle/DicFhirStore_Demo_LargeContent.xml
