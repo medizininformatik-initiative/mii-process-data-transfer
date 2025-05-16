@@ -1,5 +1,7 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
@@ -100,8 +102,19 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 		IdType url = (IdType) listEntry.getItem().getReferenceElement();
 		String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-		InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
+		InputStream inputStream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
 				fhirBinaryStreamReadUseHapiBlobStorageOperation);
-		mimeTypeHelper.validate(stream, mimetype);
+
+		if (!inputStream.markSupported())
+			inputStream = new BufferedInputStream(inputStream);
+
+		try
+		{
+			mimeTypeHelper.validate(inputStream, mimetype);
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException(e);
+		}
 	}
 }

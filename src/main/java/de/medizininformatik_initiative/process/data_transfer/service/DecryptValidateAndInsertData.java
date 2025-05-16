@@ -3,6 +3,8 @@ package de.medizininformatik_initiative.process.data_transfer.service;
 import static org.hl7.fhir.r4.model.DocumentReference.ReferredDocumentStatus.FINAL;
 import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
@@ -230,7 +232,17 @@ public class DecryptValidateAndInsertData extends AbstractServiceDelegate implem
 
 	private void validateDataStream(InputStream inputStream, String mimeType)
 	{
-		mimeTypeHelper.validate(inputStream, mimeType);
+		if (!inputStream.markSupported())
+			inputStream = new BufferedInputStream(inputStream);
+
+		try
+		{
+			mimeTypeHelper.validate(inputStream, mimeType);
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException(e);
+		}
 	}
 
 	private void validateDataResource(Binary binary)
