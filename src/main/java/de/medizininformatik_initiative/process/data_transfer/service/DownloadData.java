@@ -13,10 +13,8 @@ import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -209,30 +207,12 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 	private List<Resource> getResources(Stream<DataResource> dataResources, String sendingOrganization,
 			String projectIdentifier, String taskId)
 	{
-		return dataResources.map(this::getResource).filter(Objects::nonNull)
+		return dataResources.map(DataResource::toResource).filter(Objects::nonNull)
 				.peek(r -> dataLogger.logResource(
 						"Read attachment from organization '" + sendingOrganization + "' for project-identifier '"
 								+ projectIdentifier + "' referenced in Task with id '" + taskId + "'",
 						r))
 				.toList();
-	}
-
-	private Resource getResource(DataResource attachment)
-	{
-		if (attachment.hasStreamLocation())
-		{
-			ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
-
-			entry.getItem().setReferenceElement(attachment.streamLocation());
-			entry.addExtension().setUrl(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)
-					.setValue(new StringType(attachment.mimetype()));
-
-			return new ListResource().addEntry(entry);
-		}
-		else if (attachment.hasResource())
-			return attachment.resource();
-		else
-			throw new RuntimeException("Data not available as resource or stream");
 	}
 
 	private boolean isMimetypeFhir(String mimetype)

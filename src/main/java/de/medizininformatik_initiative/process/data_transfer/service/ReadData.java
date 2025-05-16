@@ -15,7 +15,6 @@ import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -204,7 +203,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	private List<Resource> getResources(Stream<DataResource> dataResources, String dmsIdentifier,
 			String projectIdentifier, String taskId)
 	{
-		List<Resource> resources = dataResources.map(this::getResource).filter(Objects::nonNull).toList();
+		List<Resource> resources = dataResources.map(DataResource::toResource).filter(Objects::nonNull).toList();
 
 		return combineListResources(resources)
 				.peek(r -> dataLogger.logResource("Read attachment for DMS '" + dmsIdentifier
@@ -225,23 +224,5 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 			return Stream.concat(notListResources, Stream.of(listResource));
 		else
 			return notListResources;
-	}
-
-	private Resource getResource(DataResource attachment)
-	{
-		if (attachment.hasStreamLocation() && fhirBinaryStreamReadEnabled)
-		{
-			ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
-
-			entry.getItem().setReferenceElement(attachment.streamLocation());
-			entry.addExtension().setUrl(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)
-					.setValue(new StringType(attachment.mimetype()));
-
-			return new ListResource().addEntry(entry);
-		}
-		else if (attachment.hasResource())
-			return attachment.resource();
-		else
-			throw new RuntimeException("Data not available as resource or stream");
 	}
 }
