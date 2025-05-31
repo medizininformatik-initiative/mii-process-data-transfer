@@ -84,6 +84,5 @@ public class ActivityDefinitionProfileTest
 
 		assertTrue(processAuthorizationHelper.isValid(ad, taskProfile -> true, practitionerRole -> true,
 				orgIdentifier -> true, organizationRole -> true));
-		;
 	}
 }

@@ -48,18 +48,13 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		if (!currentTask.getId().equals(startTask.getId()))
 			handleReceivedResponse(startTask, currentTask);
 		else if (Task.TaskStatus.INPROGRESS.equals(startTask.getStatus()))
-			handleMissingResponse(startTask);
+			handleMissingResponse(startTask, variables);
 
 		writeStatusLogAndSendMail(startTask, projectIdentifier, dmsIdentifier);
 
 		variables.updateTask(startTask);
-
 		if (Task.TaskStatus.FAILED.equals(startTask.getStatus()))
-		{
-			api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-					.update(startTask);
-		}
+			updateTaskOnServer(startTask);
 	}
 
 	private void handleReceivedResponse(Task startTask, Task currentTask)
@@ -73,13 +68,17 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 			startTask.setStatus(Task.TaskStatus.FAILED);
 	}
 
-	private void handleMissingResponse(Task startTask)
+	private void handleMissingResponse(Task startTask, Variables variables)
 	{
-		startTask.setStatus(Task.TaskStatus.FAILED);
-		startTask.addOutput(statusGenerator.createDataSetStatusOutput(
-				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+		// only add receipt-missing if data could be sent to DMS
+		if (variables.getVariable(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR) == null)
+		{
+			startTask.setStatus(Task.TaskStatus.FAILED);
+			startTask.addOutput(statusGenerator.createDataSetStatusOutput(
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+		}
 	}
 
 	private void writeStatusLogAndSendMail(Task startTask, String projectIdentifier, String dmsIdentifier)
@@ -99,9 +98,8 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 
 		if (ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK.equals(code))
 		{
-			logger.info(
-					"Task with id '{}' for project-identifier '{}' and DMS with identifier '{}' has data-set status code '{}'",
-					task, projectIdentifier, dmsIdentifier, code);
+			logger.info("Task with id '{}' for DMS '{}' and project-identifier '{}' has data-set status code '{}'",
+					task.getId(), dmsIdentifier, projectIdentifier, code);
 
 			sendSuccessfulMail(task, projectIdentifier, dmsIdentifier, code);
 		}
@@ -109,7 +107,7 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		{
 			String errorLog = error.isBlank() ? "" : " - " + error;
 			logger.warn(
-					"Could not deliver encrypted transferable data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
+					"Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
 					dmsIdentifier, projectIdentifier, task.getId(), errorLog);
 
 			sendErrorMail(task, projectIdentifier, dmsIdentifier, code, error);
@@ -137,5 +135,12 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 				+ "':\n" + "- status code: " + code + "\n" + "- error: " + error;
 
 		api.getMailService().send(subject, message);
+	}
+
+	private void updateTaskOnServer(Task startTask)
+	{
+		api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
+				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
+				.update(startTask);
 	}
 }

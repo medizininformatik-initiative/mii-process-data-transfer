@@ -1,0 +1,34 @@
+<Bundle xmlns="http://hl7.org/fhir">
+	<type value="transaction"/>
+	<entry>
+		<fullUrl value="urn:uuid:76e62d33-4d93-4684-9a2c-58939d2a7ade"/>
+		<resource>
+			<DocumentReference xmlns="http://hl7.org/fhir">
+				<masterIdentifier>
+					<system value="http://medizininformatik-initiative.de/sid/project-identifier"/>
+					<value value="Test_PROJECT_LargeContent"/>
+				</masterIdentifier>
+				<status value="current"/>
+				<docStatus value="final"/>
+				<author>
+					<type value="Organization"/>
+					<identifier>
+						<system value="http://dsf.dev/sid/organization-identifier"/>
+						<value value="Test_DIC1"/>
+					</identifier>
+				</author>
+				<date value="2022-11-16T10:00:00+01:00"/>
+				<content>
+					<attachment>
+						<contentType value="application/x-ndjson"/>
+						<url value="Binary/1"/>
+					</attachment>
+				</content>
+			</DocumentReference>
+		</resource>
+		<request>
+			<method value="POST"/>
+			<url value="DocumentReference"/>
+		</request>
+	</entry>
+</Bundle>

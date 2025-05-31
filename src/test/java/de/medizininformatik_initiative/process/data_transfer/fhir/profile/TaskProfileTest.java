@@ -167,10 +167,11 @@ public class TaskProfileTest
 				.addCoding(CodeSystems.BpmnMessage.messageName());
 
 		task.addInput()
-				.setValue(new Reference().setReference("https://dsf-dic.de/fhir/Binary/" + UUID.randomUUID().toString())
-						.setType(ResourceType.Binary.name()))
+				.setValue(new Reference()
+						.setReference("https://dsf-dic.de/fhir/DocumentReference/" + UUID.randomUUID().toString())
+						.setType(ResourceType.DocumentReference.name()))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE);
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
 		task.addInput()
 				.setValue(new Identifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
 						.setValue("Test_PROJECT"))

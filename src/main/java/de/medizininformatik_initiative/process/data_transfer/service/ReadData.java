@@ -2,6 +2,7 @@ package de.medizininformatik_initiative.process.data_transfer.service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
@@ -10,16 +11,19 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.processes.common.fhir.client.FhirClient;
+import de.medizininformatik_initiative.process.data_transfer.variables.DataResource;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
+import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
@@ -28,12 +32,19 @@ import dev.dsf.bpe.v1.variables.Variables;
 public class ReadData extends AbstractServiceDelegate implements InitializingBean
 {
 	private static final Logger logger = LoggerFactory.getLogger(ReadData.class);
-	private final FhirClientFactory fhirClientFactory;
 
-	public ReadData(ProcessPluginApi api, FhirClientFactory fhirClientFactory)
+	private final FhirClientFactory fhirClientFactory;
+	private final boolean fhirBinaryStreamReadEnabled;
+
+	private final DataLogger dataLogger;
+
+	public ReadData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, boolean fhirBinaryStreamReadEnabled,
+			DataLogger dataLogger)
 	{
 		super(api);
 		this.fhirClientFactory = fhirClientFactory;
+		this.fhirBinaryStreamReadEnabled = fhirBinaryStreamReadEnabled;
+		this.dataLogger = dataLogger;
 	}
 
 	@Override
@@ -41,44 +52,44 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	{
 		super.afterPropertiesSet();
 		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
+		Objects.requireNonNull(dataLogger, "dataLogger");
 	}
 
 	@Override
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
 		Task task = variables.getStartTask();
-		String projectIdentifier = getProjectIdentifier(task);
 		String dmsIdentifier = getDmsIdentifier(task);
-
-		FhirClient fhirClient = fhirClientFactory.getFhirClient();
+		String projectIdentifier = getProjectIdentifier(task, dmsIdentifier);
 
 		logger.info(
-				"Reading data-set on FHIR server with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-				fhirClient.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId());
+				"Reading data-set on FHIR store with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
+				fhirClientFactory.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId());
 
 		try
 		{
-			DocumentReference documentReference = readDocumentReference(fhirClient, projectIdentifier, task.getId());
-			Resource resource = readAttachment(fhirClient, documentReference, task.getId());
+			DocumentReference documentReference = readDocumentReference(dmsIdentifier, projectIdentifier, task.getId());
+			Stream<DataResource> attachments = readAttachments(documentReference, projectIdentifier);
+			List<Resource> resources = getResources(attachments, dmsIdentifier, projectIdentifier, task.getId());
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER, dmsIdentifier);
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DOCUMENT_REFERENCE, documentReference);
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE, resource);
+			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
+					documentReference);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
 		}
 		catch (Exception exception)
 		{
 			logger.warn(
-					"Could not read data-set on FHIR server with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					fhirClient.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId(),
+					"Could not read data-set on FHIR store with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
+					fhirClientFactory.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId(),
 					exception.getMessage());
 
-			String error = "Read data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Reading data-set failed - " + exception.getMessage(), exception);
 		}
 	}
 
-	private String getProjectIdentifier(Task task)
+	private String getProjectIdentifier(Task task, String dmsIdentifier)
 	{
 		List<String> identifiers = task.getInput().stream().filter(i -> i.getType().getCoding().stream()
 				.anyMatch(c -> ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER.equals(c.getSystem())
@@ -87,12 +98,13 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
 				.map(Identifier::getValue).toList();
 
-		if (identifiers.size() < 1)
-			throw new IllegalArgumentException("No project-identifier present in Task with id '" + task.getId() + "'");
+		if (identifiers.isEmpty())
+			throw new IllegalArgumentException("No project-identifier present in Task.input");
 
 		if (identifiers.size() > 1)
-			logger.warn("Found {} project-identifiers in Task with id '{}', using only the first", identifiers.size(),
-					task.getId());
+			logger.warn(
+					"Found {} project-identifier inputs for DMS '{}' referenced in Task with id '{}', using the first ('{}')",
+					identifiers.size(), dmsIdentifier, task.getId(), identifiers.get(0));
 
 		return identifiers.get(0);
 	}
@@ -103,98 +115,114 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DMS_IDENTIFIER, Reference.class)
 				.orElseThrow(
-						() -> new IllegalArgumentException("No coordinating site identifier present in Task with id '"
-								+ task.getId() + "', this should have been caught by resource validation"))
+						() -> new IllegalArgumentException("No coordinating site identifier present in Task.input"))
 				.getIdentifier().getValue();
 	}
 
-	private DocumentReference readDocumentReference(FhirClient fhirClient, String projectIdentifier, String taskId)
+	private DocumentReference readDocumentReference(String dmsIdentifier, String projectIdentifier, String taskId)
 	{
-		List<DocumentReference> documentReferences = fhirClient
+		List<DocumentReference> documentReferences = fhirClientFactory.getStandardFhirClient()
 				.searchDocumentReferences(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier)
 				.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
 				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
 
-		if (documentReferences.size() < 1)
-			throw new IllegalArgumentException("Could not find any DocumentReference for project-identifier '"
-					+ projectIdentifier + "' on FHIR store with baseUrl '" + fhirClient.getFhirBaseUrl()
-					+ "' referenced in Task with id '" + taskId + "'");
+		if (documentReferences.isEmpty())
+			throw new IllegalArgumentException("Could not find any DocumentReference with matching project-identifier");
 
 		if (documentReferences.size() > 1)
 			logger.warn(
-					"Found {} DocumentReferences for project-identifier '{}' referenced in Task with id '{}', using first ({})",
-					documentReferences.size(), projectIdentifier, taskId,
-					documentReferences.get(0).getIdElement().getValue());
+					"Found {} DocumentReferences for DMS '{}' and project-identifier '{}' on FHIR store with baseURL '{}' referenced in Task with id '{}', using the first ('{}')",
+					documentReferences.size(), dmsIdentifier, projectIdentifier, fhirClientFactory.getFhirBaseUrl(),
+					taskId, documentReferences.get(0).getIdElement().getValue());
 
-		return documentReferences.get(0);
+		DocumentReference documentReference = documentReferences.get(0);
+		dataLogger.logResource("DocumentReference for DMS '" + dmsIdentifier + "' and project-identifier '"
+				+ projectIdentifier + "' on FHIR store with baseURL '" + fhirClientFactory.getFhirBaseUrl()
+				+ "' referenced in Task with id '" + taskId + "'", documentReference);
+
+		return documentReference;
 	}
 
-	private Resource readAttachment(FhirClient fhirClient, DocumentReference documentReference, String taskId)
+	private Stream<DataResource> readAttachments(DocumentReference documentReference, String projectIdentifier)
 	{
-		String url = getAttachmentUrl(documentReference, taskId);
-		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(fhirClient, url, documentReference, taskId);
-
-		return readAttachment(fhirClient, urlIdType);
-	}
-
-	private String getAttachmentUrl(DocumentReference documentReference, String taskId)
-	{
-		List<String> urls = Stream.of(documentReference).filter(DocumentReference::hasContent)
+		return Stream.of(documentReference).filter(DocumentReference::hasContent)
 				.flatMap(dr -> dr.getContent().stream())
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
-				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment).filter(Attachment::hasUrl)
-				.map(Attachment::getUrl).toList();
-
-		if (urls.size() < 1)
-			throw new IllegalArgumentException("Could not find any attachment URLs in DocumentReference with id '"
-					+ getKdsFhirStoreAbsoluteId(documentReference.getIdElement()) + "' belonging to task with id '"
-					+ taskId + "'");
-
-		if (urls.size() > 1)
-			logger.warn(
-					"Found {} attachment URLs in DocumentReference with id '{}' belonging to task with id '{}', using first ({})",
-					urls.size(), getKdsFhirStoreAbsoluteId(documentReference.getIdElement()), taskId, urls.get(0));
-
-		return urls.get(0);
+				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment)
+				.map(a -> readAttachment(a, projectIdentifier));
 	}
 
-	private IdType checkValidKdsFhirStoreUrlAndGetIdType(FhirClient fhirClient, String url,
-			DocumentReference documentReference, String taskId)
+	private DataResource readAttachment(Attachment attachment, String projectIdentifier)
 	{
-		try
+		String url = getAttachmentUrl(attachment);
+		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(url);
+
+		if (ResourceType.Binary.name().equals(urlIdType.getResourceType()) && fhirBinaryStreamReadEnabled)
 		{
-			IdType idType = new IdType(url);
-			String fhirBaseUrl = fhirClient.getFhirBaseUrl();
-
-			// expecting no Base URL or, Base URL equal to KDS client Base URL
-			boolean hasValidBaseUrl = !idType.hasBaseUrl() || fhirBaseUrl.equals(idType.getBaseUrl());
-			boolean isResourceReference = idType.hasResourceType() && idType.hasIdPart();
-
-			if (hasValidBaseUrl && isResourceReference)
-				return idType;
-			else
-				throw new IllegalArgumentException("Attachment URL " + url + " in DocumentReference with id '"
-						+ getKdsFhirStoreAbsoluteId(documentReference.getIdElement()) + "' belonging to task with id '"
-						+ taskId + "' is not a valid KDS FHIR store reference (baseUrl if not empty must match '"
-						+ fhirBaseUrl + "', resource type must be set, id must be set)");
+			String mimetype = getAttachmentMimeType(attachment, projectIdentifier);
+			return DataResource.of(urlIdType, mimetype);
 		}
-		catch (Exception exception)
+		else
 		{
-			logger.warn("Could not check if attachment url is a valid KDS FHIR store url - {}", exception.getMessage());
-			throw new RuntimeException(
-					"Could not check if attachment url is a valid KDS FHIR store url - " + exception.getMessage(),
-					exception);
+			Resource resource = fhirClientFactory.getStandardFhirClient().read(urlIdType);
+			return DataResource.of(resource);
 		}
 	}
 
-	private Resource readAttachment(FhirClient fhirClient, IdType idType)
+	private String getAttachmentUrl(Attachment attachment)
 	{
-		return fhirClient.read(idType);
+		return Optional.of(attachment).filter(Attachment::hasUrl).map(Attachment::getUrl).orElseThrow(
+				() -> new IllegalArgumentException("Could not find any attachment URLs in DocumentReference"));
 	}
 
-	private String getKdsFhirStoreAbsoluteId(IdType idType)
+	private String getAttachmentMimeType(Attachment attachment, String projectIdentifier)
 	{
-		return new IdType(fhirClientFactory.getFhirClient().getFhirBaseUrl(), idType.getResourceType(),
-				idType.getIdPart(), idType.getVersionIdPart()).getValue();
+		return Optional.of(attachment).filter(Attachment::hasContentType).map(Attachment::getContentType)
+				.orElseThrow(() -> new IllegalArgumentException(
+						"Could not find any attachment contentType (mimeType) in DocumentReference for project-identifier '"
+								+ projectIdentifier + "'"));
+	}
+
+	private IdType checkValidKdsFhirStoreUrlAndGetIdType(String url)
+	{
+		IdType idType = new IdType(url);
+
+		// expecting no Base URL or, Base URL equal to KDS client Base URL
+		boolean hasValidBaseUrl = !idType.hasBaseUrl()
+				|| fhirClientFactory.getFhirBaseUrl().equals(idType.getBaseUrl());
+		boolean isResourceReference = idType.hasResourceType() && idType.hasIdPart();
+
+		if (hasValidBaseUrl && isResourceReference)
+			return idType;
+		else
+			throw new IllegalArgumentException("Attachment URL '" + url
+					+ "' in DocumentReference is not a valid KDS FHIR store reference (baseUrl must match '"
+					+ fhirClientFactory.getFhirBaseUrl() + "', resource type must be set, id must be set)");
+	}
+
+	private List<Resource> getResources(Stream<DataResource> dataResources, String dmsIdentifier,
+			String projectIdentifier, String taskId)
+	{
+		List<Resource> resources = dataResources.map(DataResource::toResource).filter(Objects::nonNull).toList();
+
+		return combineListResources(resources)
+				.peek(r -> dataLogger.logResource("Read attachment for DMS '" + dmsIdentifier
+						+ "' and project-identifier '" + projectIdentifier + "' on FHIR store with baseURL '"
+						+ fhirClientFactory.getFhirBaseUrl() + "' referenced in Task with id '" + taskId + "'", r))
+				.toList();
+	}
+
+	private Stream<Resource> combineListResources(List<Resource> resources)
+	{
+		ListResource listResource = new ListResource()
+				.setEntry(resources.stream().filter(r -> r instanceof ListResource).map(l -> ((ListResource) l))
+						.flatMap(l -> l.getEntry().stream()).toList());
+
+		Stream<Resource> notListResources = resources.stream().filter(r -> !(r instanceof ListResource));
+
+		if (!listResource.getEntry().isEmpty())
+			return Stream.concat(notListResources, Stream.of(listResource));
+		else
+			return notListResources;
 	}
 }

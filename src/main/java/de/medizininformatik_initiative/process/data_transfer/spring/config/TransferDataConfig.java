@@ -10,20 +10,16 @@ import org.springframework.context.annotation.Scope;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
-import de.medizininformatik_initiative.process.data_transfer.service.CreateBundle;
-import de.medizininformatik_initiative.process.data_transfer.service.DecryptData;
+import de.medizininformatik_initiative.process.data_transfer.service.DecryptValidateAndInsertData;
 import de.medizininformatik_initiative.process.data_transfer.service.DeleteData;
 import de.medizininformatik_initiative.process.data_transfer.service.DownloadData;
-import de.medizininformatik_initiative.process.data_transfer.service.EncryptData;
+import de.medizininformatik_initiative.process.data_transfer.service.EncryptAndStoreData;
 import de.medizininformatik_initiative.process.data_transfer.service.HandleErrorReceive;
 import de.medizininformatik_initiative.process.data_transfer.service.HandleErrorSend;
-import de.medizininformatik_initiative.process.data_transfer.service.InsertData;
 import de.medizininformatik_initiative.process.data_transfer.service.ReadData;
 import de.medizininformatik_initiative.process.data_transfer.service.SelectTargetDic;
-import de.medizininformatik_initiative.process.data_transfer.service.StoreData;
 import de.medizininformatik_initiative.process.data_transfer.service.StoreReceipt;
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
-import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDms;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProviderImpl;
 import de.medizininformatik_initiative.processes.common.mimetype.CombinedDetectors;
@@ -44,6 +40,21 @@ public class TransferDataConfig
 
 	@Autowired
 	private DmsFhirClientConfig dmsFhirClientConfig;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "To enable stream processing when reading Binary resources set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.enabled:false}")
+	private boolean fhirBinaryStreamReadEnabled;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "If the DIC FHIR server is a HAPI FHIR server and uses external storage for Binary resources via the ENV variable `HAPI_FHIR_BINARY_STORAGE_ENABLED`, set this ENV variable as well to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.use.hapi.blob.storage.operation:false}")
+	private boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "To enable stream processing when writing Binary resources set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.binary.stream.write.enabled:false}")
+	private boolean fhirBinaryStreamWriteEnabled;
 
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS private-key as 4096 Bit RSA PEM encoded, not encrypted file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_private_key.pem")
@@ -99,35 +110,24 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ReadData readData()
 	{
-		return new ReadData(api, dicFhirClientConfig.fhirClientFactory());
+		return new ReadData(api, dicFhirClientConfig.fhirClientFactory(), fhirBinaryStreamReadEnabled,
+				dicFhirClientConfig.dataLogger());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ValidateDataDic validateDataDic()
 	{
-		return new ValidateDataDic(api, mimeTypeHelper());
+		return new ValidateDataDic(api, mimeTypeHelper(), dicFhirClientConfig.fhirClientFactory(),
+				fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public CreateBundle createBundle()
+	public EncryptAndStoreData encryptAndStoreData()
 	{
-		return new CreateBundle(api, dicFhirClientConfig.dataLogger());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public EncryptData encryptData()
-	{
-		return new EncryptData(api, keyProviderDic());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public StoreData storeData()
-	{
-		return new StoreData(api);
+		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory(),
+				dataSetStatusGenerator(), fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean
@@ -164,28 +164,16 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DownloadData downloadData()
 	{
-		return new DownloadData(api, dataSetStatusGenerator());
+		return new DownloadData(api, dataSetStatusGenerator(), fhirBinaryStreamWriteEnabled,
+				dmsFhirClientConfig.dataLogger());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public DecryptData decryptData()
+	public DecryptValidateAndInsertData decryptValidateAndInsertData()
 	{
-		return new DecryptData(api, keyProviderDms(), dmsFhirClientConfig.dataLogger(), dataSetStatusGenerator());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public ValidateDataDms validateDataDms()
-	{
-		return new ValidateDataDms(api, mimeTypeHelper(), dataSetStatusGenerator());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public InsertData insertData()
-	{
-		return new InsertData(api, dmsFhirClientConfig.fhirClientFactory(), dataSetStatusGenerator());
+		return new DecryptValidateAndInsertData(api, keyProviderDms(), mimeTypeHelper(),
+				dmsFhirClientConfig.fhirClientFactory(), dataSetStatusGenerator());
 	}
 
 	@Bean
