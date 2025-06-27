@@ -10,17 +10,17 @@
       <bpmn:incoming>Flow_1gyqorb</bpmn:incoming>
       <bpmn:outgoing>Flow_064nbas</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_064nbas" sourceRef="DownloadDataFromDic" targetRef="DecryptData" />
-    <bpmn:serviceTask id="DecryptData" name="decrypt, validate and insert data" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.DecryptValidateAndInsertData">
+    <bpmn:sequenceFlow id="Flow_064nbas" sourceRef="DownloadDataFromDic" targetRef="decryptValidateAndInsertData" />
+    <bpmn:serviceTask id="decryptValidateAndInsertData" name="decrypt, validate and insert data" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.DecryptValidateAndInsertData">
       <bpmn:incoming>Flow_064nbas</bpmn:incoming>
       <bpmn:outgoing>Flow_1c3t0x1</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_1c3t0x1" sourceRef="DecryptData" targetRef="Gateway_1u8di90" />
+    <bpmn:sequenceFlow id="Flow_1c3t0x1" sourceRef="decryptValidateAndInsertData" targetRef="Gateway_1u8di90" />
     <bpmn:boundaryEvent id="Event_0k465ce" attachedToRef="DownloadDataFromDic">
       <bpmn:outgoing>Flow_1iwqqfr</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_0pexd3k" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
-    <bpmn:boundaryEvent id="Event_0w8rnob" attachedToRef="DecryptData">
+    <bpmn:boundaryEvent id="Event_0w8rnob" attachedToRef="decryptValidateAndInsertData">
       <bpmn:outgoing>Flow_1a3apuy</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_1e7fqdh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
@@ -64,6 +64,19 @@
   <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" errorCode="dataReceiveError" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataReceive">
+      <bpmndi:BPMNShape id="Event_0kx3ho7_di" bpmnElement="DataReceiveMessageStartEvent">
+        <dc:Bounds x="179" y="99" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="156" y="142" width="85" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1l9pati_di" bpmnElement="DownloadDataFromDic">
+        <dc:Bounds x="290" y="77" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_09bdctd_di" bpmnElement="decryptValidateAndInsertData">
+        <dc:Bounds x="440" y="77" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_1u8di90_di" bpmnElement="Gateway_1u8di90" isMarkerVisible="true">
         <dc:Bounds x="765" y="92" width="50" height="50" />
       </bpmndi:BPMNShape>
@@ -80,25 +93,20 @@
       <bpmndi:BPMNShape id="Activity_0thcs40_di" bpmnElement="handleErrorReceive">
         <dc:Bounds x="620" y="180" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_0kx3ho7_di" bpmnElement="DataReceiveMessageStartEvent">
-        <dc:Bounds x="179" y="99" width="36" height="36" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="156" y="142" width="85" height="27" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_1l9pati_di" bpmnElement="DownloadDataFromDic">
-        <dc:Bounds x="290" y="77" width="100" height="80" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_09bdctd_di" bpmnElement="DecryptData">
-        <dc:Bounds x="440" y="77" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_180rat1" bpmnElement="Event_0w8rnob">
         <dc:Bounds x="522" y="139" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_03tuscl_di" bpmnElement="Event_0k465ce">
         <dc:Bounds x="372" y="139" width="36" height="36" />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1gyqorb_di" bpmnElement="Flow_1gyqorb">
+        <di:waypoint x="215" y="117" />
+        <di:waypoint x="290" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_064nbas_di" bpmnElement="Flow_064nbas">
+        <di:waypoint x="390" y="117" />
+        <di:waypoint x="440" y="117" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_1c3t0x1_di" bpmnElement="Flow_1c3t0x1">
         <di:waypoint x="540" y="117" />
         <di:waypoint x="765" y="117" />
@@ -125,14 +133,6 @@
         <di:waypoint x="540" y="175" />
         <di:waypoint x="540" y="220" />
         <di:waypoint x="620" y="220" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1gyqorb_di" bpmnElement="Flow_1gyqorb">
-        <di:waypoint x="215" y="117" />
-        <di:waypoint x="290" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_064nbas_di" bpmnElement="Flow_064nbas">
-        <di:waypoint x="390" y="117" />
-        <di:waypoint x="440" y="117" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
