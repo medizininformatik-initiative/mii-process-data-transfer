@@ -104,7 +104,7 @@ public class DmsFhirClientConfig
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The base url of the oidc provider", example = "http://foo.baz/realms/fhir-realm")
-	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.issuer.url:#{null}}")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.oauth2.url:#{null}}")
 	private String fhirStoreOAuth2IssuerUrl;
 
 	@ProcessDocumentation(processNames = {
