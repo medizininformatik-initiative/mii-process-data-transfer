@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
@@ -100,8 +101,9 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ProcessPluginDeploymentStateListener dataTransferProcessPluginDeploymentStateListener()
 	{
-		return new DataTransferProcessPluginDeploymentStateListener(dicFhirClientConfig.fhirClientFactory(),
-				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms());
+		String resourcesVersion = new DataTransferProcessPluginDefinition().getResourceVersion();
+		return new DataTransferProcessPluginDeploymentStateListener(api, dicFhirClientConfig.fhirClientFactory(),
+				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms(), resourcesVersion);
 	}
 
 	// dataSend
