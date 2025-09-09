@@ -31,6 +31,15 @@
 		<display value="Project Identifier" />
 		<definition value="Project identifier for which a data-set should be transmitted" />
 	</concept>
+	<!--
+		TODO: data-set-reference added for backwards compatibility, because CodeSystems with different versions cannot
+		      be used in DSF API 1.x. Remove for DSF API 2.x where CodeSystem versioning is fixed.
+	-->
+	<concept>
+		<code value="data-set-reference" />
+		<display value="Data-set Reference" />
+		<definition value="Reference to a Binary data-set on a DSF FHIR server in version 1.0 (only used in process version 1.0)" />
+	</concept>
 	<concept>
 		<code value="document-reference-location" />
 		<display value="Document Reference Location" />

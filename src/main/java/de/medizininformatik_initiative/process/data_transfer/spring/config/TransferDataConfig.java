@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
@@ -25,6 +26,7 @@ import de.medizininformatik_initiative.processes.common.crypto.KeyProviderImpl;
 import de.medizininformatik_initiative.processes.common.mimetype.CombinedDetectors;
 import de.medizininformatik_initiative.processes.common.mimetype.MimeTypeHelper;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
+import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.ProcessPluginDeploymentStateListener;
 import dev.dsf.bpe.v1.documentation.ProcessDocumentation;
@@ -97,11 +99,19 @@ public class TransferDataConfig
 	}
 
 	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
+	public MetadataResourceConverter metadataResourceConverter()
+	{
+		String resourcesVersion = new DataTransferProcessPluginDefinition().getResourceVersion();
+		return new MetadataResourceConverter(api, resourcesVersion);
+	}
+
+	@Bean
+	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public ProcessPluginDeploymentStateListener dataTransferProcessPluginDeploymentStateListener()
 	{
-		return new DataTransferProcessPluginDeploymentStateListener(dicFhirClientConfig.fhirClientFactory(),
-				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms());
+		return new DataTransferProcessPluginDeploymentStateListener(api, dicFhirClientConfig.fhirClientFactory(),
+				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms(), metadataResourceConverter());
 	}
 
 	// dataSend

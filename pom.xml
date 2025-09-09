@@ -10,8 +10,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<compileSource>17</compileSource>
-		<compileTarget>17</compileTarget>
+		<maven.compiler.release>17</maven.compiler.release>
 
 		<dsf.version>1.8.0</dsf.version>
 		<testSetup.location>../mii-processes-test-setup</testSetup.location>
@@ -83,10 +82,6 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.14.0</version>
-				<configuration>
-					<source>${compileSource}</source>
-					<target>${compileTarget}</target>
-				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
