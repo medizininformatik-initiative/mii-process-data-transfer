@@ -50,6 +50,5 @@ public interface ConstantsDataTransfer
 	String CODE_SYSTEM_PRACTITIONER_ROLE = "http://dsf.dev/fhir/CodeSystem/practitioner-role";
 	String CODE_SYSTEM_PRACTITIONER_ROLE_VALUE_DSF_ADMIN = "DSF_ADMIN";
 
-
 	String EXTENSION_LIST_ENTRY_MIMETYPE = "http://medizininformatik-initiative.de/fhir/StructureDefinition/extension-list-entry-item-mimetype";
 }

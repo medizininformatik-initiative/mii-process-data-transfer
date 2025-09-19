@@ -72,12 +72,12 @@ public class TransferDataConfig
 	private String dmsPublicKeyFile;
 
 	@ProcessDocumentation(required = true, processNames = { "medizininformatik-initiativede_dataSend",
-			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set senders to the authorization rules based on the `<parent-organization>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_RECEIVERS' should be set as well", example = "nct.dkfz.de|DIC")
+			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set senders to the authorization rules based on the `<consortium-identifier>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_RECEIVERS' should be set as well", example = "nct.dkfz.de|DIC")
 	@Value("#{'${de.medizininformatik.initiative.data.transfer.process.authorization.additionally.allowed.senders:medizininformatik-initiative.de|DIC}'.trim().split('(,[ ]?)|(\\n)')}")
 	private List<String> additionallyAllowedSenders;
 
 	@ProcessDocumentation(required = true, processNames = { "medizininformatik-initiativede_dataSend",
-			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set receivers to the authorization rules based on the `<parent-organization>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_SENDERS' should be set as well", example = "nct.dkfz.de|DMS")
+			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set receivers to the authorization rules based on the `<consortium-identifier>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_SENDERS' should be set as well", example = "nct.dkfz.de|DMS")
 	@Value("#{'${de.medizininformatik.initiative.data.transfer.process.authorization.additionally.allowed.receivers:medizininformatik-initiative.de|DMS}'.trim().split('(,[ ]?)|(\\n)')}")
 	private List<String> additionallyAllowedReceivers;
 
