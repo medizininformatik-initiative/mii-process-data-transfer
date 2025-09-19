@@ -27,6 +27,7 @@ import de.medizininformatik_initiative.processes.common.fhir.client.logging.Data
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
+import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
 
 public class ReadData extends AbstractServiceDelegate implements InitializingBean
@@ -60,6 +61,7 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 	{
 		Task task = variables.getStartTask();
 		String dmsIdentifier = getDmsIdentifier(task);
+		String consortiumIdentifier = getConsortiumIdentifier(task);
 		String projectIdentifier = getProjectIdentifier(task, dmsIdentifier);
 
 		logger.info(
@@ -74,6 +76,8 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER, dmsIdentifier);
+			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER,
+					consortiumIdentifier);
 			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
 					documentReference);
 			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
@@ -109,13 +113,22 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 		return identifiers.get(0);
 	}
 
+	private String getConsortiumIdentifier(Task task)
+	{
+		return api.getTaskHelper()
+				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
+				.orElse(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
+						ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM)))
+				.getIdentifier().getValue();
+	}
+
 	private String getDmsIdentifier(Task task)
 	{
 		return api.getTaskHelper()
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DMS_IDENTIFIER, Reference.class)
-				.orElseThrow(
-						() -> new IllegalArgumentException("No coordinating site identifier present in Task.input"))
+				.orElseThrow(() -> new IllegalArgumentException("No DMS identifier present in Task.input"))
 				.getIdentifier().getValue();
 	}
 

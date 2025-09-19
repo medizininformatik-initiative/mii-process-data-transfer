@@ -28,7 +28,7 @@
 		<element id="Task.input">
 			<path value="Task.input"/>
 			<min value="3"/>
-			<max value="4"/>
+			<max value="5"/>
 		</element>
 		<element id="Task.input:message-name">
 			<path value="Task.input"/>
@@ -42,6 +42,49 @@
 			<path value="Task.input"/>
 			<sliceName value="correlation-key"/>
 			<max value="0"/>
+		</element>
+		<element id="Task.input:consortium-identifier">
+			<path value="Task.input"/>
+			<sliceName value="consortium-identifier"/>
+			<min value="0"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:consortium-identifier.type">
+			<path value="Task.input.type"/>
+			<binding>
+				<strength value="required"/>
+				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
+			</binding>
+		</element>
+		<element id="Task.input:consortium-identifier.type.coding">
+			<path value="Task.input.type.coding"/>
+			<min value="1"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:consortium-identifier.type.coding.system">
+			<path value="Task.input.type.coding.system"/>
+			<min value="1"/>
+			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
+		</element>
+		<element id="Task.input:consortium-identifier.type.coding.code">
+			<path value="Task.input.type.coding.code"/>
+			<min value="1"/>
+			<fixedCode value="consortium-identifier"/>
+		</element>
+		<element id="Task.input:consortium-identifier.value[x]">
+			<path value="Task.input.value[x]"/>
+			<type>
+				<code value="Reference"/>
+				<targetProfile value="http://dsf.dev/fhir/StructureDefinition/organization"/>
+			</type>
+		</element>
+		<element id="Task.input:consortium-identifier.value[x].reference">
+			<path value="Task.input.value[x].reference"/>
+			<max value="0"/>
+		</element>
+		<element id="Task.input:consortium-identifier.value[x].identifier">
+			<path value="Task.input.value[x].identifier"/>
+			<min value="1"/>
 		</element>
 		<element id="Task.input:dms-identifier">
 			<path value="Task.input"/>

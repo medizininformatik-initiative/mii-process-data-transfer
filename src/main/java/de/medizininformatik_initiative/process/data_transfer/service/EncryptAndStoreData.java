@@ -81,6 +81,8 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		Task task = variables.getStartTask();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		DocumentReference initialDocumentReference = variables
 				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE);
@@ -95,7 +97,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 
 		try
 		{
-			PublicKey publicKey = readPublicKey(dmsIdentifier, projectIdentifier, task.getId());
+			PublicKey publicKey = readPublicKey(consortiumIdentifier, dmsIdentifier, projectIdentifier, task.getId());
 			String localOrganizationIdentifier = getLocalOrganizationIdentifier();
 
 			DocumentReference transferDocumentReference = createAndStoreDocumentReference(projectIdentifier,
@@ -117,7 +119,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 					transferDocumentReference.getId(), dmsIdentifier, projectIdentifier, task.getId());
 			sendMail(task, projectIdentifier, dmsIdentifier, transferDocumentReference.getIdElement());
 
-			Target target = createTarget(variables, dmsIdentifier);
+			Target target = createTarget(variables, consortiumIdentifier, dmsIdentifier);
 			variables.setTarget(target);
 		}
 		catch (Exception exception)
@@ -142,9 +144,10 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		}
 	}
 
-	private PublicKey readPublicKey(String dmsIdentifier, String projectIdentifier, String taskId)
+	private PublicKey readPublicKey(String consortiumIdentifier, String dmsIdentifier, String projectIdentifier,
+			String taskId)
 	{
-		String url = getEndpointUrl(dmsIdentifier);
+		String url = getEndpointUrl(consortiumIdentifier, dmsIdentifier);
 		Optional<Bundle> publicKeyBundleOptional = keyProvider.readPublicKeyIfExists(url);
 
 		if (publicKeyBundleOptional.isEmpty())
@@ -165,14 +168,9 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		return publicKey;
 	}
 
-	private String getEndpointUrl(String identifier)
+	private String getEndpointUrl(String consortiumIdentifier, String organizationIdentifier)
 	{
-		return api.getEndpointProvider().getEndpointAddress(NamingSystems.OrganizationIdentifier.withValue(
-				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM),
-				NamingSystems.OrganizationIdentifier.withValue(identifier),
-				new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)
-						.setCode(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE_VALUE_DMS))
-				.orElseThrow(() -> new RuntimeException("Could not find Endpoint for DMS organization"));
+		return getEndpoint(consortiumIdentifier, organizationIdentifier).getAddress();
 	}
 
 	private DocumentReference getDocumentReference(Bundle bundle, String dmsIdentifier, String projectIdentifier,
@@ -410,21 +408,21 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 				transferBinaryReferenceList, variables);
 	}
 
-	private Target createTarget(Variables variables, String dmsIdentifier)
+	private Target createTarget(Variables variables, String consortiumIdentifier, String dmsIdentifier)
 	{
-		Endpoint endpoint = getEndpoint(dmsIdentifier);
+		Endpoint endpoint = getEndpoint(consortiumIdentifier, dmsIdentifier);
 		return variables.createTarget(dmsIdentifier, getEndpointIdentifierValue(endpoint), endpoint.getAddress());
 	}
 
-	private Endpoint getEndpoint(String identifier)
+	private Endpoint getEndpoint(String consortiumIdentifier, String organizationIdentifier)
 	{
-		return api.getEndpointProvider().getEndpoint(NamingSystems.OrganizationIdentifier.withValue(
-				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM),
-				NamingSystems.OrganizationIdentifier.withValue(identifier),
-				new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)
-						.setCode(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE_VALUE_DMS))
-				.orElseThrow(() -> new RuntimeException(
-						"Could not find Endpoint of organization with identifier '" + identifier + "'"));
+		return api.getEndpointProvider()
+				.getEndpoint(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier),
+						NamingSystems.OrganizationIdentifier.withValue(organizationIdentifier),
+						new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)
+								.setCode(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE_VALUE_DMS))
+				.orElseThrow(() -> new RuntimeException("Could not find Endpoint of organization with identifier '"
+						+ organizationIdentifier + "' in  consortium '" + consortiumIdentifier + "'"));
 	}
 
 	private String getEndpointIdentifierValue(Endpoint endpoint)

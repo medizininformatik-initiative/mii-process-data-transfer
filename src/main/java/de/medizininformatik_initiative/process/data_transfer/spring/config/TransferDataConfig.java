@@ -1,5 +1,7 @@
 package de.medizininformatik_initiative.process.data_transfer.spring.config;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -9,6 +11,7 @@ import org.springframework.context.annotation.Scope;
 
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
+import de.medizininformatik_initiative.process.data_transfer.authorization.AuthorizationProvider;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
 import de.medizininformatik_initiative.process.data_transfer.service.DecryptValidateAndInsertData;
@@ -68,6 +71,16 @@ public class TransferDataConfig
 	@Value("${de.medizininformatik.initiative.dms.public.key:#{null}}")
 	private String dmsPublicKeyFile;
 
+	@ProcessDocumentation(required = true, processNames = { "medizininformatik-initiativede_dataSend",
+			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set senders to the authorization rules based on the `<parent-organization>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_RECEIVERS' should be set as well", example = "nct.dkfz.de|DIC")
+	@Value("#{'${de.medizininformatik.initiative.data.transfer.process.authorization.additionally.allowed.senders:medizininformatik-initiative.de|DIC}'.trim().split('(,[ ]?)|(\\n)')}")
+	private List<String> additionallyAllowedSenders;
+
+	@ProcessDocumentation(required = true, processNames = { "medizininformatik-initiativede_dataSend",
+			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set receivers to the authorization rules based on the `<parent-organization>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_SENDERS' should be set as well", example = "nct.dkfz.de|DMS")
+	@Value("#{'${de.medizininformatik.initiative.data.transfer.process.authorization.additionally.allowed.receivers:medizininformatik-initiative.de|DMS}'.trim().split('(,[ ]?)|(\\n)')}")
+	private List<String> additionallyAllowedReceivers;
+
 	// all Processes
 
 	@Bean
@@ -108,10 +121,20 @@ public class TransferDataConfig
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
+	public AuthorizationProvider authorizationProvider()
+	{
+		String resourcesVersion = new DataTransferProcessPluginDefinition().getResourceVersion();
+		return new AuthorizationProvider(api, resourcesVersion, additionallyAllowedSenders,
+				additionallyAllowedReceivers);
+	}
+
+	@Bean
+	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public ProcessPluginDeploymentStateListener dataTransferProcessPluginDeploymentStateListener()
 	{
 		return new DataTransferProcessPluginDeploymentStateListener(api, dicFhirClientConfig.fhirClientFactory(),
-				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms(), metadataResourceConverter());
+				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms(), metadataResourceConverter(),
+				authorizationProvider());
 	}
 
 	// dataSend

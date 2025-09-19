@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.Endpoint;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Task;
 
+import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
@@ -24,8 +25,10 @@ public class SelectTargetDic extends AbstractServiceDelegate
 	protected void doExecute(DelegateExecution execution, Variables variables)
 	{
 		Task task = variables.getStartTask();
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		Identifier dicIdentifier = getDicOrganizationIdentifier(task);
-		Endpoint dicEndpoint = getDicEndpoint(dicIdentifier);
+		Endpoint dicEndpoint = getDicEndpoint(consortiumIdentifier, dicIdentifier);
 		Target dicTarget = createTarget(variables, dicIdentifier, dicEndpoint);
 
 		variables.setTarget(dicTarget);
@@ -36,10 +39,9 @@ public class SelectTargetDic extends AbstractServiceDelegate
 		return task.getRequester().getIdentifier();
 	}
 
-	private Endpoint getDicEndpoint(Identifier dicIdentifier)
+	private Endpoint getDicEndpoint(String consortiumIdentifier, Identifier dicIdentifier)
 	{
-		Identifier parentIdentifier = NamingSystems.OrganizationIdentifier.withValue(
-				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM);
+		Identifier parentIdentifier = NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier);
 		Coding role = new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)
 				.setCode(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE_VALUE_DIC);
 		return api.getEndpointProvider().getEndpoint(parentIdentifier, dicIdentifier, role)
