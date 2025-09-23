@@ -1,5 +1,6 @@
 package de.medizininformatik_initiative.process.data_transfer.authorization;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -12,15 +13,18 @@ import java.util.stream.Stream;
 
 import org.hl7.fhir.r4.model.ActivityDefinition;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.fhir.authorization.process.ProcessAuthorizationHelper;
 import dev.dsf.fhir.authorization.process.Recipient;
@@ -56,7 +60,14 @@ public class AuthorizationProvider implements InitializingBean
 		this.api = api;
 		this.resourcesVersion = resourcesVersion;
 
+		additionallyAllowedSenders
+				.add(ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM
+						+ "|DIC");
 		this.additionallyAllowedSenders = additionallyAllowedSenders.stream().map(ProcessAuthorization::from).toList();
+
+		additionallyAllowedReceivers
+				.add(ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM
+						+ "|DMS");
 		this.additionallyAllowedReceivers = additionallyAllowedReceivers.stream().map(ProcessAuthorization::from)
 				.toList();
 	}
@@ -85,21 +96,23 @@ public class AuthorizationProvider implements InitializingBean
 
 	public void checkAddAndUpdateAuthorizationDataSend(ActivityDefinition activityDefinition)
 	{
+		boolean processAuthorizationChanged = false;
+
 		// for each entry in allowedSender: check if exists or add requester for task-data-send-start (LOCAL_ROLE,
 		// LOCAL_ROLE_PRACTITIONER)
 		// for each entry in allowedSender: check if exists or add recipient for task-data-send-start (LOCAL_ROLE)
-		Set<Requester> requestersDataSendStart = api.getProcessAuthorizationHelper()
+		Set<Requester> currentRequestersDataSendStart = api.getProcessAuthorizationHelper()
 				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START)
 				.collect(Collectors.toSet());
-		Set<Recipient> recipientDataSendStart = api.getProcessAuthorizationHelper()
+		Set<Recipient> currentRecipientsDataSendStart = api.getProcessAuthorizationHelper()
 				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START)
 				.collect(Collectors.toSet());
 
-		List<Requester> missingRequesterDataSendStart = additionallyAllowedSenders.stream()
+		Set<Requester> configuredRequestersDataSendStart = additionallyAllowedSenders.stream()
 				.flatMap(s -> Stream.of(
 						Requester.localRole(s.parentOrganizationIdentifierValue,
 								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
@@ -107,78 +120,117 @@ public class AuthorizationProvider implements InitializingBean
 								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue,
 								ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE,
 								ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE_VALUE_DSF_ADMIN)))
-				.filter(notContainsNewRequester(requestersDataSendStart)).toList();
-		List<Recipient> missingRecipientDataSendStart = additionallyAllowedSenders.stream()
+				.collect(Collectors.toSet());
+		Set<Recipient> configuredRecipientsDataSendStart = additionallyAllowedSenders.stream()
 				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
 						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
-				.filter(notContainsNewRecipient(recipientDataSendStart)).toList();
+				.collect(Collectors.toSet());
 
-		if (!missingRequesterDataSendStart.isEmpty() || !missingRecipientDataSendStart.isEmpty())
+		Set<Requester> removedOldRequestersDataSendStart = currentRequestersDataSendStart.stream()
+				.filter(containsOldRequester(configuredRequestersDataSendStart)).collect(Collectors.toSet());
+		Set<Recipient> removedOldRecipientsDataSendStart = currentRecipientsDataSendStart.stream()
+				.filter(containsOldRecipient(configuredRecipientsDataSendStart)).collect(Collectors.toSet());
+
+		Set<Requester> missingRequestersDataSendStart = configuredRequestersDataSendStart.stream()
+				.filter(notContainsNewRequester(removedOldRequestersDataSendStart)).collect(Collectors.toSet());
+		Set<Recipient> missingRecipientsDataSendStart = configuredRecipientsDataSendStart.stream()
+				.filter(notContainsNewRecipient(removedOldRecipientsDataSendStart)).collect(Collectors.toSet());
+
+		if (!missingRequestersDataSendStart.isEmpty() || !missingRecipientsDataSendStart.isEmpty()
+				|| removedOldRequestersDataSendStart.size() != currentRequestersDataSendStart.size()
+				|| removedOldRecipientsDataSendStart.size() != currentRecipientsDataSendStart.size())
 		{
+			removedOldRequestersDataSendStart.addAll(missingRequestersDataSendStart);
+			removedOldRecipientsDataSendStart.addAll(missingRecipientsDataSendStart);
+
 			logger.info(
-					"Adding additional allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START,
-					toRequesterString(missingRequesterDataSendStart));
+					toRequesterString(removedOldRequestersDataSendStart));
 			logger.info(
-					"Adding additional allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START,
-					toRecipientString(missingRecipientDataSendStart));
+					toRecipientString(removedOldRecipientsDataSendStart));
+
+			removeAllAuthorizationExtensions(activityDefinition,
+					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START));
 			api.getProcessAuthorizationHelper().add(activityDefinition,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
-					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START), missingRequesterDataSendStart,
-					missingRecipientDataSendStart);
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START),
+					removedOldRequestersDataSendStart, removedOldRecipientsDataSendStart);
+			processAuthorizationChanged = true;
 		}
 
 		// for each entry in allowedReceiver: check if exists or add requester for task-data-status (LOCAL_ROLE,
 		// REMOTE_ROLE)
 		// for each entry in allowedSender: check if exists or add recipient for task-data-status (LOCAL_ROLE)
-		Set<Requester> requestersDataStatus = api.getProcessAuthorizationHelper()
+		Set<Requester> currentRequestersDataStatus = api.getProcessAuthorizationHelper()
 				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS)
 				.collect(Collectors.toSet());
-		Set<Recipient> recipientDataStatus = api.getProcessAuthorizationHelper()
+		Set<Recipient> currentRecipientsDataStatus = api.getProcessAuthorizationHelper()
 				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS)
 				.collect(Collectors.toSet());
 
-		List<Requester> missingRequesterDataStatus = additionallyAllowedReceivers.stream()
+		Set<Requester> configuredRequestersDataStatus = additionallyAllowedReceivers.stream()
 				.flatMap(s -> Stream.of(
 						Requester.localRole(s.parentOrganizationIdentifierValue,
 								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
 						Requester.remoteRole(s.parentOrganizationIdentifierValue,
 								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue)))
-				.filter(notContainsNewRequester(requestersDataStatus)).toList();
-		List<Recipient> missingRecipientDataStatus = additionallyAllowedSenders.stream()
+				.collect(Collectors.toSet());
+		Set<Recipient> configuredRecipientsDataStatus = additionallyAllowedSenders.stream()
 				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
 						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
-				.filter(notContainsNewRecipient(recipientDataStatus)).toList();
+				.collect(Collectors.toSet());
 
-		if (!missingRequesterDataStatus.isEmpty() || !missingRecipientDataStatus.isEmpty())
+		Set<Requester> removedOldRequestersDataStatus = currentRequestersDataStatus.stream()
+				.filter(containsOldRequester(configuredRequestersDataStatus)).collect(Collectors.toSet());
+		Set<Recipient> removedOldRecipientsDataStatus = currentRecipientsDataStatus.stream()
+				.filter(containsOldRecipient(configuredRecipientsDataStatus)).collect(Collectors.toSet());
+
+		Set<Requester> missingRequestersDataStatus = configuredRequestersDataStatus.stream()
+				.filter(notContainsNewRequester(removedOldRequestersDataStatus)).collect(Collectors.toSet());
+		Set<Recipient> missingRecipientsDataStatus = configuredRecipientsDataStatus.stream()
+				.filter(notContainsNewRecipient(removedOldRecipientsDataStatus)).collect(Collectors.toSet());
+
+		if (!missingRequestersDataStatus.isEmpty() || !missingRecipientsDataStatus.isEmpty()
+				|| removedOldRequestersDataStatus.size() != currentRequestersDataStatus.size()
+				|| removedOldRecipientsDataStatus.size() != currentRecipientsDataStatus.size())
 		{
+			removedOldRequestersDataStatus.addAll(missingRequestersDataStatus);
+			removedOldRecipientsDataStatus.addAll(missingRecipientsDataStatus);
+
 			logger.info(
-					"Adding additional allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
-					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRequesterString(missingRequesterDataStatus));
+					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRequesterString(removedOldRequestersDataStatus));
 			logger.info(
-					"Adding additional allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjsuting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
-					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRecipientString(missingRecipientDataStatus));
+					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRecipientString(removedOldRecipientsDataStatus));
+
+			removeAllAuthorizationExtensions(activityDefinition,
+					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS));
 			api.getProcessAuthorizationHelper().add(activityDefinition,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
-					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS), missingRequesterDataStatus,
-					missingRecipientDataStatus);
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS), removedOldRequestersDataStatus,
+					removedOldRecipientsDataStatus);
+			processAuthorizationChanged = true;
 		}
 
-		if (!missingRequesterDataSendStart.isEmpty() || !missingRecipientDataSendStart.isEmpty()
-				|| !requestersDataStatus.isEmpty() || !recipientDataStatus.isEmpty())
+		if (processAuthorizationChanged)
 			updateResource(activityDefinition);
 	}
 
@@ -186,48 +238,65 @@ public class AuthorizationProvider implements InitializingBean
 	{
 		// for each entry in allowedSender: check if exists or add requester for task-data-send (LOCAL_ROLE,
 		// REMOTE_ROLE)
-		Set<Requester> requestersDataSend = api.getProcessAuthorizationHelper()
+		// for each entry in allowedReceivers: check if exists or add recipient for task-data-status (LOCAL_ROLE)
+		Set<Requester> currentRequestersDataSend = api.getProcessAuthorizationHelper()
 				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND)
 				.collect(Collectors.toSet());
-
-		List<Requester> missingRequesterDataSend = additionallyAllowedSenders.stream()
-				.flatMap(s -> Stream.of(
-						Requester.localRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
-						Requester.remoteRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue)))
-				.filter(notContainsNewRequester(requestersDataSend)).toList();
-
-		// for each entry in allowedReceivers: check if exists or add recipient for task-data-status (LOCAL_ROLE)
-		Set<Recipient> recipientDataSend = api.getProcessAuthorizationHelper()
+		Set<Recipient> currentRecipientsDataSend = api.getProcessAuthorizationHelper()
 				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND)
 				.collect(Collectors.toSet());
 
-		List<Recipient> missingRecipientDataSend = additionallyAllowedReceivers.stream()
+		Set<Requester> configuredRequestersDataSend = additionallyAllowedSenders.stream()
+				.flatMap(s -> Stream.of(
+						Requester.localRole(s.parentOrganizationIdentifierValue,
+								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
+						Requester.remoteRole(s.parentOrganizationIdentifierValue,
+								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue)))
+				.collect(Collectors.toSet());
+		Set<Recipient> configuredRecipientsDataSend = additionallyAllowedReceivers.stream()
 				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
 						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
-				.filter(notContainsNewRecipient(recipientDataSend)).toList();
+				.collect(Collectors.toSet());
 
-		if (!missingRequesterDataSend.isEmpty() || !missingRecipientDataSend.isEmpty())
+		Set<Requester> removedOldRequestersDataSend = currentRequestersDataSend.stream()
+				.filter(containsOldRequester(configuredRequestersDataSend)).collect(Collectors.toSet());
+		Set<Recipient> removedOldRecipientsDataSend = currentRecipientsDataSend.stream()
+				.filter(containsOldRecipient(configuredRecipientsDataSend)).collect(Collectors.toSet());
+
+		List<Requester> missingRequestersDataSend = configuredRequestersDataSend.stream()
+				.filter(notContainsNewRequester(removedOldRequestersDataSend)).toList();
+		List<Recipient> missingRecipientsDataSend = configuredRecipientsDataSend.stream()
+				.filter(notContainsNewRecipient(removedOldRecipientsDataSend)).toList();
+
+		if (!missingRequestersDataSend.isEmpty() || !missingRecipientsDataSend.isEmpty()
+				|| removedOldRequestersDataSend.size() != currentRequestersDataSend.size()
+				|| removedOldRecipientsDataSend.size() != currentRecipientsDataSend.size())
 		{
+			removedOldRequestersDataSend.addAll(missingRequestersDataSend);
+			removedOldRecipientsDataSend.addAll(missingRecipientsDataSend);
+
 			logger.info(
-					"Adding additional allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
-					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRequesterString(missingRequesterDataSend));
+					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRequesterString(removedOldRequestersDataSend));
 			logger.info(
-					"Adding additional allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
-					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRecipientString(missingRecipientDataSend));
+					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRecipientString(removedOldRecipientsDataSend));
+
+			removeAllAuthorizationExtensions(activityDefinition,
+					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND));
 			api.getProcessAuthorizationHelper().add(activityDefinition,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
-					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND), missingRequesterDataSend,
-					missingRecipientDataSend);
+					appendVersion(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND), removedOldRequestersDataSend,
+					removedOldRecipientsDataSend);
 			updateResource(activityDefinition);
 		}
 	}
@@ -257,6 +326,18 @@ public class AuthorizationProvider implements InitializingBean
 		api.getFhirWebserviceClientProvider().getLocalWebserviceClient().update(resource);
 	}
 
+	private Predicate<Requester> containsOldRequester(Set<Requester> configureds)
+	{
+		return oldR -> configureds.stream()
+				.anyMatch(configured -> configured.requesterMatches(oldR.toRequesterExtension()));
+	}
+
+	private Predicate<Recipient> containsOldRecipient(Set<Recipient> configureds)
+	{
+		return oldR -> configureds.stream()
+				.anyMatch(configured -> configured.recipientMatches(oldR.toRecipientExtension()));
+	}
+
 	private Predicate<Requester> notContainsNewRequester(Set<Requester> existings)
 	{
 		return newR -> existings.stream().noneMatch(existing -> existing.requesterMatches(newR.toRequesterExtension()));
@@ -268,19 +349,35 @@ public class AuthorizationProvider implements InitializingBean
 		return newR -> existings.stream().noneMatch(existing -> existing.recipientMatches(newR.toRecipientExtension()));
 	}
 
+	private void removeAllAuthorizationExtensions(ActivityDefinition activityDefinition, String messageName,
+			String taskProfile)
+	{
+		List<Extension> extensions = activityDefinition
+				.getExtensionsByUrl(ProcessAuthorizationHelper.EXTENSION_PROCESS_AUTHORIZATION).stream()
+				.filter(extension -> !messageName.equals(((StringType) extension
+						.getExtensionByUrl(ProcessAuthorizationHelper.EXTENSION_PROCESS_AUTHORIZATION_MESSAGE_NAME)
+						.getValue()).getValue())
+						&& !taskProfile.equals(((CanonicalType) extension
+								.getExtensionByUrl(
+										ProcessAuthorizationHelper.EXTENSION_PROCESS_AUTHORIZATION_TASK_PROFILE)
+								.getValue()).getValue()))
+				.toList();
+		activityDefinition.setExtension(new ArrayList<>(extensions));
+	}
+
 	private String appendVersion(String url)
 	{
 		return url + "|" + resourcesVersion;
 	}
 
-	private String toRequesterString(List<Requester> requesters)
+	private String toRequesterString(Set<Requester> requesters)
 	{
 		return requesters.stream().map(Requester::toRequesterExtension).map(Extension::getValue)
 				.filter(v -> v instanceof Coding).map(v -> (Coding) v).map(this::toParentOrganizationRoleString)
 				.collect(Collectors.joining(","));
 	}
 
-	private String toRecipientString(List<Recipient> recipients)
+	private String toRecipientString(Set<Recipient> recipients)
 	{
 		return recipients.stream().map(Recipient::toRecipientExtension).map(Extension::getValue)
 				.filter(v -> v instanceof Coding).map(v -> (Coding) v).map(this::toParentOrganizationRoleString)
