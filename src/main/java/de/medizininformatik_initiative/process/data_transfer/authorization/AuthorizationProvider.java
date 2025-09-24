@@ -215,7 +215,7 @@ public class AuthorizationProvider implements InitializingBean
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRequesterString(removedOldRequestersDataStatus));
 			logger.info(
-					"Adjsuting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
+					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
 					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRecipientString(removedOldRecipientsDataStatus));
