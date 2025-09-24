@@ -20,6 +20,7 @@ import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
+import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
 import dev.dsf.fhir.client.FhirWebserviceClient;
 import jakarta.ws.rs.WebApplicationException;
@@ -65,7 +66,16 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 		projectIdentifierComponent.setValue(new Identifier()
 				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
-		return Stream.of(documentReferenceComponent, projectIdentifierComponent);
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
+
+		Task.ParameterComponent consortiumIdentifierComponent = new Task.ParameterComponent();
+		consortiumIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
+		consortiumIdentifierComponent.setValue(new Reference().setType(ResourceType.Organization.name())
+				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier)));
+
+		return Stream.of(documentReferenceComponent, projectIdentifierComponent, consortiumIdentifierComponent);
 	}
 
 	@Override

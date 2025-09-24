@@ -9,6 +9,7 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.MetadataResource;
 import org.springframework.beans.factory.InitializingBean;
 
+import de.medizininformatik_initiative.process.data_transfer.authorization.AuthorizationProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
 import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
@@ -26,16 +27,18 @@ public class DataTransferProcessPluginDeploymentStateListener
 	private final KeyProvider keyProvider;
 
 	private final MetadataResourceConverter metadataResourceConverter;
+	private final AuthorizationProvider authorizationProvider;
 
 	public DataTransferProcessPluginDeploymentStateListener(ProcessPluginApi api,
 			FhirClientFactory dicFhirClientFactory, FhirClientFactory dmsFhirClientConfig, KeyProvider keyProvider,
-			MetadataResourceConverter metadataResourceConverter)
+			MetadataResourceConverter metadataResourceConverter, AuthorizationProvider authorizationProvider)
 	{
 		this.api = api;
 		this.dicFhirClientFactory = dicFhirClientFactory;
 		this.dmsFhirClientFactory = dmsFhirClientConfig;
 		this.keyProvider = keyProvider;
 		this.metadataResourceConverter = metadataResourceConverter;
+		this.authorizationProvider = authorizationProvider;
 	}
 
 	@Override
@@ -46,6 +49,7 @@ public class DataTransferProcessPluginDeploymentStateListener
 		Objects.requireNonNull(dmsFhirClientFactory, "dmsFhirClientFactory");
 		Objects.requireNonNull(keyProvider, "keyProvider");
 		Objects.requireNonNull(metadataResourceConverter, "metadataResourceConverter");
+		Objects.requireNonNull(authorizationProvider, "authorizationProvider");
 	}
 
 	@Override
@@ -60,10 +64,14 @@ public class DataTransferProcessPluginDeploymentStateListener
 				this::filterCodeSystemsWithNonMatchingConceptCodes, this::adaptCodeSystemsReplacingConcepts);
 
 		if (activeProcesses.contains(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND))
+		{
+			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataSend();
 			dicFhirClientFactory.testConnection();
+		}
 
 		if (activeProcesses.contains(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE))
 		{
+			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataReceive();
 			dmsFhirClientFactory.testConnection();
 			keyProvider.createPublicKeyIfNotExists();
 		}

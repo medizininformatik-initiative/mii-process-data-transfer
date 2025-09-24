@@ -22,6 +22,11 @@
 	<versionNeeded value="false" />
 	<content value="complete" />
 	<concept>
+		<code value="consortium-identifier" />
+		<display value="Consortium Identifier" />
+		<definition value="Organization identifier of the consortium the DMS belongs to" />
+	</concept>
+	<concept>
 		<code value="dms-identifier" />
 		<display value="DMS Identifier" />
 		<definition value="Organization identifier of a DMS" />

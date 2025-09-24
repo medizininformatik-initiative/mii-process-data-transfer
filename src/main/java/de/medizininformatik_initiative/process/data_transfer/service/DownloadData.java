@@ -62,6 +62,9 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 
+		String consortiumIdentifier = getConsortiumIdentifier(task);
+		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER, consortiumIdentifier);
+
 		String projectIdentifier = getProjectIdentifier(task);
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 
@@ -113,6 +116,15 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
 				.map(Identifier::getValue).findFirst()
 				.orElseThrow(() -> new RuntimeException("No project-identifier present in Task.input"));
+	}
+
+	private String getConsortiumIdentifier(Task task)
+	{
+		return api.getTaskHelper()
+				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
+				.orElseThrow(() -> new IllegalArgumentException("No consortium identifier present in Task.input"))
+				.getIdentifier().getValue();
 	}
 
 	private IdType getDocumentReferenceLocation(Task task, String sendingOrganization, String projectIdentifier)
