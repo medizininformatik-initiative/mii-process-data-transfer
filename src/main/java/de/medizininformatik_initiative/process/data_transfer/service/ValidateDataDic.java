@@ -1,8 +1,14 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.Objects;
 
 import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
@@ -10,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
 import de.medizininformatik_initiative.processes.common.mimetype.MimeTypeHelper;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
@@ -20,11 +27,16 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 	private static final Logger logger = LoggerFactory.getLogger(ValidateDataDic.class);
 
 	private final MimeTypeHelper mimeTypeHelper;
+	private final FhirClientFactory fhirClientFactory;
+	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 
-	public ValidateDataDic(ProcessPluginApi api, MimeTypeHelper mimeTypeHelper)
+	public ValidateDataDic(ProcessPluginApi api, MimeTypeHelper mimeTypeHelper, FhirClientFactory fhirClientFactory,
+			boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
 	{
 		super(api);
 		this.mimeTypeHelper = mimeTypeHelper;
+		this.fhirClientFactory = fhirClientFactory;
+		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	}
 
 	@Override
@@ -32,6 +44,7 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 	{
 		super.afterPropertiesSet();
 		Objects.requireNonNull(mimeTypeHelper, "mimeTypeHelper");
+		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
 	}
 
 	@Override
@@ -47,12 +60,9 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 
 		try
 		{
-			Resource resource = variables.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RESOURCE);
-
-			String mimeType = mimeTypeHelper.getMimeType(resource);
-			byte[] data = mimeTypeHelper.getData(resource);
-
-			mimeTypeHelper.validate(data, mimeType);
+			List<Resource> resources = variables
+					.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
+			resources.forEach(this::validate);
 		}
 		catch (Exception exception)
 		{
@@ -60,8 +70,51 @@ public class ValidateDataDic extends AbstractServiceDelegate implements Initiali
 					"Could not validate data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
 					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
 
-			String error = "Validate data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Validating data-set failed - " + exception.getMessage(), exception);
+		}
+	}
+
+	private void validate(Resource resource)
+	{
+		if (resource instanceof ListResource list)
+			validateStream(list);
+		else
+			validateResource(resource);
+	}
+
+	private void validateResource(Resource resource)
+	{
+		String mimeType = mimeTypeHelper.getMimeType(resource);
+		byte[] data = mimeTypeHelper.getData(resource);
+
+		mimeTypeHelper.validate(data, mimeType);
+	}
+
+	private void validateStream(ListResource list)
+	{
+		list.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
+				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
+				.forEach(this::doValidateStream);
+	}
+
+	private void doValidateStream(ListResource.ListEntryComponent listEntry)
+	{
+		IdType url = (IdType) listEntry.getItem().getReferenceElement();
+		String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
+
+		InputStream inputStream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
+				fhirBinaryStreamReadUseHapiBlobStorageOperation);
+
+		if (!inputStream.markSupported())
+			inputStream = new BufferedInputStream(inputStream);
+
+		try
+		{
+			mimeTypeHelper.validate(inputStream, mimetype);
+		}
+		catch (IOException e)
+		{
+			throw new RuntimeException(e);
 		}
 	}
 }

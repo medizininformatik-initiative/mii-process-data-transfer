@@ -1,21 +1,28 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.hl7.fhir.r4.model.Attachment;
+import org.hl7.fhir.r4.model.Binary;
+import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.process.data_transfer.variables.DataResource;
+import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
@@ -29,11 +36,16 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 	private static final Logger logger = LoggerFactory.getLogger(DownloadData.class);
 
 	private final DataSetStatusGenerator statusGenerator;
+	private final DataLogger dataLogger;
+	private final boolean fhirBinaryStreamWriteEnabled;
 
-	public DownloadData(ProcessPluginApi api, DataSetStatusGenerator statusGenerator)
+	public DownloadData(ProcessPluginApi api, DataSetStatusGenerator statusGenerator,
+			boolean fhirBinaryStreamWriteEnabled, DataLogger dataLogger)
 	{
 		super(api);
 		this.statusGenerator = statusGenerator;
+		this.fhirBinaryStreamWriteEnabled = fhirBinaryStreamWriteEnabled;
+		this.dataLogger = dataLogger;
 	}
 
 	@Override
@@ -41,6 +53,7 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 	{
 		super.afterPropertiesSet();
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
+		Objects.requireNonNull(dataLogger, "dataLogger");
 	}
 
 	@Override
@@ -49,22 +62,31 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 
+		String consortiumIdentifier = getConsortiumIdentifier(task);
+		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER, consortiumIdentifier);
+
 		String projectIdentifier = getProjectIdentifier(task);
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 
-		IdType dataSetReference = getDataSetReference(task);
-		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE,
-				dataSetReference.getValue());
+		IdType documentReferenceLocation = getDocumentReferenceLocation(task, sendingOrganization, projectIdentifier);
+		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
+				documentReferenceLocation.getValue());
 
 		logger.info(
-				"Downloading data-set with id '{}' from organization '{}' for project-identifier '{}' referenced in Task with id '{}'",
-				dataSetReference.getValue(), sendingOrganization, projectIdentifier, task.getId());
+				"Downloading data-set from organization '{}' for project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments)",
+				sendingOrganization, projectIdentifier, task.getId(), documentReferenceLocation.getValue());
 
 		try
 		{
-			byte[] bundleEncrypted = readDataSet(dataSetReference);
-			variables.setByteArray(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_ENCRYPTED, bundleEncrypted);
+			DocumentReference documentReference = readDocumentReference(documentReferenceLocation, sendingOrganization,
+					projectIdentifier, task.getId());
+			Stream<DataResource> attachments = readAttachments(documentReference);
+			List<Resource> resources = getResources(attachments, sendingOrganization, projectIdentifier, task.getId());
+
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
+			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE,
+					documentReference);
+			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES, resources);
 		}
 		catch (Exception exception)
 		{
@@ -76,12 +98,11 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 			variables.updateTask(task);
 
 			logger.warn(
-					"Could not download data-set with id '{}' from organization '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					dataSetReference.getValue(), sendingOrganization, projectIdentifier, task.getId(),
+					"Could not download data-set from organization '{}' for project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments) - {}",
+					sendingOrganization, projectIdentifier, task.getId(), documentReferenceLocation.getValue(),
 					exception.getMessage());
 
 			String error = "Download data-set failed - " + exception.getMessage();
-			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE, error);
 			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error, exception);
 		}
 	}
@@ -93,50 +114,121 @@ public class DownloadData extends AbstractServiceDelegate implements Initializin
 						&& ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER.equals(c.getCode())))
 				.filter(i -> i.getValue() instanceof Identifier).map(i -> (Identifier) i.getValue())
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
-				.map(Identifier::getValue).findFirst().orElseThrow(() -> new RuntimeException(
-						"No project-identifier present in Task with id '" + task.getId() + "'"));
+				.map(Identifier::getValue).findFirst()
+				.orElseThrow(() -> new RuntimeException("No project-identifier present in Task.input"));
 	}
 
-	private IdType getDataSetReference(Task task)
+	private String getConsortiumIdentifier(Task task)
+	{
+		return api.getTaskHelper()
+				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
+				.orElseThrow(() -> new IllegalArgumentException("No consortium identifier present in Task.input"))
+				.getIdentifier().getValue();
+	}
+
+	private IdType getDocumentReferenceLocation(Task task, String sendingOrganization, String projectIdentifier)
 	{
 		List<String> dataSetReferences = api.getTaskHelper()
 				.getInputParameters(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE, Reference.class)
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION,
+						Reference.class)
 				.map(Task.ParameterComponent::getValue).filter(i -> i instanceof Reference).map(i -> (Reference) i)
 				.filter(Reference::hasReference).map(Reference::getReference).toList();
 
-		if (dataSetReferences.size() < 1)
-			throw new IllegalArgumentException("No data-set reference present in Task with id '" + task.getId() + "'");
+		if (dataSetReferences.isEmpty())
+			throw new IllegalArgumentException("No DocumentReference reference present in Task.input");
 
 		if (dataSetReferences.size() > 1)
-			logger.warn("Found {} data-set references in Task with id '{}', using only the first",
-					dataSetReferences.size(), task.getId());
+			logger.warn(
+					"Found {} DocumentReference references from organization '{}' for project-identifier '{}' referenced in Task with id '{}', using only the first",
+					dataSetReferences.size(), sendingOrganization, projectIdentifier, task.getId());
 
 		return new IdType(dataSetReferences.get(0));
 	}
 
-	private byte[] readDataSet(IdType dataSetReference)
+	private DocumentReference readDocumentReference(IdType documentReferenceLocation, String sendingOrganization,
+			String projectIdentifier, String taskId)
 	{
+		DocumentReference documentReference = api.getFhirWebserviceClientProvider()
+				.getWebserviceClient(documentReferenceLocation.getBaseUrl())
+				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
+				.read(DocumentReference.class, documentReferenceLocation.getIdPart(),
+						documentReferenceLocation.getVersionIdPart());
+
+		dataLogger
+				.logResource(
+						"DocumentReference from organization '" + sendingOrganization + "' for project-identifier '"
+								+ projectIdentifier + "' referenced in Task with id '" + taskId + "'",
+						documentReference);
+
+		return documentReference;
+	}
+
+	private Stream<DataResource> readAttachments(DocumentReference documentReference)
+	{
+		return documentReference.getContent().stream()
+				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
+				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment).map(this::readAttachment);
+	}
+
+	private DataResource readAttachment(Attachment attachment)
+	{
+		IdType attachmentId = new IdType(attachment.getUrl());
+
 		BasicFhirWebserviceClient client = api.getFhirWebserviceClientProvider()
-				.getWebserviceClient(dataSetReference.getBaseUrl())
+				.getWebserviceClient(attachmentId.getBaseUrl())
 				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN);
 
-		try (InputStream binary = readBinaryResource(client, dataSetReference.getIdPart(),
-				dataSetReference.getVersionIdPart()))
+		String mimetype = getAttachmentMimeType(attachment);
+		if (fhirBinaryStreamWriteEnabled && !isMimetypeFhir(mimetype))
 		{
-			return binary.readAllBytes();
+			return DataResource.of(attachmentId, mimetype);
 		}
-		catch (IOException exception)
+		else
 		{
-			throw new RuntimeException(exception);
+			try (InputStream binary = readBinaryResource(client, attachmentId.getIdPart(),
+					attachmentId.getVersionIdPart()))
+			{
+				return DataResource
+						.of(new Binary().setData(binary.readAllBytes()).setContentType(attachment.getContentType()));
+			}
+			catch (Exception exception)
+			{
+				throw new RuntimeException("Downloading attachment failed - " + exception.getMessage(), exception);
+			}
 		}
+	}
+
+	private String getAttachmentMimeType(Attachment attachment)
+	{
+		return Optional.of(attachment).filter(Attachment::hasContentType).map(Attachment::getContentType)
+				.orElseThrow(() -> new IllegalArgumentException(
+						"Could not find any attachment contentType (mimeType) in DocumentReference"));
 	}
 
 	private InputStream readBinaryResource(BasicFhirWebserviceClient client, String id, String version)
 	{
+		MediaType mediaType = MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM);
 		if (version != null && !version.isEmpty())
-			return client.readBinary(id, version, MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
+			return client.readBinary(id, version, mediaType);
 		else
-			return client.readBinary(id, MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
+			return client.readBinary(id, mediaType);
+	}
+
+	private List<Resource> getResources(Stream<DataResource> dataResources, String sendingOrganization,
+			String projectIdentifier, String taskId)
+	{
+		return dataResources.map(DataResource::toResource).filter(Objects::nonNull)
+				.peek(r -> dataLogger.logResource(
+						"Read attachment from organization '" + sendingOrganization + "' for project-identifier '"
+								+ projectIdentifier + "' referenced in Task with id '" + taskId + "'",
+						r))
+				.toList();
+	}
+
+	private boolean isMimetypeFhir(String mimetype)
+	{
+		return "application/fhir+xml".equals(mimetype) || "application/fhir+json".equals(mimetype);
 	}
 }

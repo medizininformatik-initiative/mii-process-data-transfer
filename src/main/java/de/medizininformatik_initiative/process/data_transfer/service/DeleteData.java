@@ -1,8 +1,14 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
+import java.util.List;
+
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Binary;
+import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.ListResource;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,34 +36,56 @@ public class DeleteData extends AbstractServiceDelegate
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
-		IdType binaryId = new IdType(
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE));
+
+		String transferDocumentReferenceLocation = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION);
+		ListResource transferBinaryReferenceList = variables
+				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES);
 
 		logger.info(
-				"Permanently deleting encrypted Binary with id '{}' provided for DMS '{}' and project-identifier '{}' "
-						+ "referenced in Task with id '{}'",
-				binaryId.getValue(), dmsIdentifier, projectIdentifier, task.getId());
+				"Permanently deleting data-set provided for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments)",
+				dmsIdentifier, projectIdentifier, task.getId(), transferDocumentReferenceLocation);
 
 		try
 		{
-			deletePermanently(binaryId);
+			List<IdType> attachments = getAttachmentIds(transferBinaryReferenceList);
+
+			deletePermanently(attachments, Binary.class);
+			deletePermanently(new IdType(transferDocumentReferenceLocation), DocumentReference.class);
 		}
 		catch (Exception exception)
 		{
 			logger.warn(
-					"Could not permanently delete data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
+					"Could not permanently delete data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments) - {}",
+					dmsIdentifier, projectIdentifier, task.getId(), transferDocumentReferenceLocation,
+					exception.getMessage());
 
-			String error = "Permanently deleting encrypted transferable data-set failed - " + exception.getMessage();
-			throw new RuntimeException(error, exception);
+			throw new RuntimeException("Permanently deleting encrypted data-set failed - " + exception.getMessage(),
+					exception);
 		}
 	}
 
-	private void deletePermanently(IdType binaryId)
+	private List<IdType> getAttachmentIds(ListResource transferBinaryReferenceList)
 	{
-		BasicFhirWebserviceClient client = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN);
-		client.delete(Binary.class, binaryId.getIdPart());
-		client.deletePermanently(Binary.class, binaryId.getIdPart());
+		return transferBinaryReferenceList.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
+				.map(ListResource.ListEntryComponent::getItem).filter(Reference::hasReference)
+				.map(i -> (IdType) i.getReferenceElement()).toList();
+	}
+
+	private void deletePermanently(List<IdType> idTypes, Class<? extends Resource> resourceType)
+	{
+		idTypes.forEach(id -> deletePermanently(id, resourceType));
+	}
+
+	private void deletePermanently(IdType idType, Class<? extends Resource> resourceType)
+	{
+		idType = idType.toVersionless();
+		if (idType.hasIdPart())
+		{
+			BasicFhirWebserviceClient client = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
+					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN);
+			client.delete(resourceType, idType.getIdPart());
+			client.deletePermanently(resourceType, idType.getIdPart());
+		}
 	}
 }

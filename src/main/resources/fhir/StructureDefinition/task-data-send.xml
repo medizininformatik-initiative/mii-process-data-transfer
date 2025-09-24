@@ -27,8 +27,8 @@
 		</element>
 		<element id="Task.input">
 			<path value="Task.input"/>
-			<min value="3"/>
-			<max value="4"/>
+			<min value="4"/>
+			<max value="5"/>
 		</element>
 		<element id="Task.input:message-name">
 			<path value="Task.input"/>
@@ -48,89 +48,132 @@
 			<sliceName value="correlation-key"/>
 			<max value="0"/>
 		</element>
-		<element id="Task.input:project-identifier">
-			<path value="Task.input" />
-			<sliceName value="project-identifier" />
-			<min value="1" />
-			<max value="1" />
-		</element>
-		<element id="Task.input:project-identifier.type">
-			<path value="Task.input.type" />
-			<binding>
-				<strength value="required" />
-				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}" />
-			</binding>
-		</element>
-		<element id="Task.input:project-identifier.type.coding">
-			<path value="Task.input.type.coding" />
-			<min value="1" />
-			<max value="1" />
-		</element>
-		<element id="Task.input:project-identifier.type.coding.system">
-			<path value="Task.input.type.coding.system" />
-			<min value="1" />
-			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
-		</element>
-		<element id="Task.input:project-identifier.type.coding.code">
-			<path value="Task.input.type.coding.code" />
-			<min value="1" />
-			<fixedCode value="project-identifier" />
-		</element>
-		<element id="Task.input:project-identifier.value[x]">
-			<path value="Task.input.value[x]" />
-			<type>
-				<code value="Identifier" />
-			</type>
-		</element>
-		<element id="Task.input:project-identifier.value[x].system">
-			<path value="Task.input.value[x].system" />
-			<min value="1" />
-			<fixedUri value="http://medizininformatik-initiative.de/sid/project-identifier" />
-		</element>
-		<element id="Task.input:project-identifier.value[x].value">
-			<path value="Task.input.value[x].value" />
-			<min value="1" />
-		</element>
-		<element id="Task.input:data-set-reference">
+		<element id="Task.input:consortium-identifier">
 			<path value="Task.input"/>
-			<sliceName value="data-set-reference"/>
+			<sliceName value="consortium-identifier"/>
 			<min value="1"/>
 			<max value="1"/>
 		</element>
-		<element id="Task.input:data-set-reference.type">
+		<element id="Task.input:consortium-identifier.type">
 			<path value="Task.input.type"/>
 			<binding>
 				<strength value="required"/>
 				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
 			</binding>
 		</element>
-		<element id="Task.input:data-set-reference.type.coding">
+		<element id="Task.input:consortium-identifier.type.coding">
 			<path value="Task.input.type.coding"/>
 			<min value="1"/>
 			<max value="1"/>
 		</element>
-		<element id="Task.input:data-set-reference.type.coding.system">
+		<element id="Task.input:consortium-identifier.type.coding.system">
 			<path value="Task.input.type.coding.system"/>
 			<min value="1"/>
 			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
 		</element>
-		<element id="Task.input:data-set-reference.type.coding.code">
+		<element id="Task.input:consortium-identifier.type.coding.code">
 			<path value="Task.input.type.coding.code"/>
 			<min value="1"/>
-			<fixedCode value="data-set-reference"/>
+			<fixedCode value="consortium-identifier"/>
 		</element>
-		<element id="Task.input:data-set-reference.value[x]">
+		<element id="Task.input:consortium-identifier.value[x]">
 			<path value="Task.input.value[x]"/>
 			<type>
 				<code value="Reference"/>
-				<targetProfile value="http://hl7.org/fhir/StructureDefinition/Binary"/>
+				<targetProfile value="http://dsf.dev/fhir/StructureDefinition/organization"/>
 			</type>
 		</element>
-		<element id="Task.input:data-set-reference.value[x].reference">
+		<element id="Task.input:consortium-identifier.value[x].reference">
+			<path value="Task.input.value[x].reference"/>
+			<max value="0"/>
+		</element>
+		<element id="Task.input:consortium-identifier.value[x].identifier">
+			<path value="Task.input.value[x].identifier"/>
+			<min value="1"/>
+		</element>
+		<element id="Task.input:project-identifier">
+			<path value="Task.input"/>
+			<sliceName value="project-identifier"/>
+			<min value="1"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:project-identifier.type">
+			<path value="Task.input.type"/>
+			<binding>
+				<strength value="required"/>
+				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
+			</binding>
+		</element>
+		<element id="Task.input:project-identifier.type.coding">
+			<path value="Task.input.type.coding"/>
+			<min value="1"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:project-identifier.type.coding.system">
+			<path value="Task.input.type.coding.system"/>
+			<min value="1"/>
+			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
+		</element>
+		<element id="Task.input:project-identifier.type.coding.code">
+			<path value="Task.input.type.coding.code"/>
+			<min value="1"/>
+			<fixedCode value="project-identifier"/>
+		</element>
+		<element id="Task.input:project-identifier.value[x]">
+			<path value="Task.input.value[x]"/>
+			<type>
+				<code value="Identifier"/>
+			</type>
+		</element>
+		<element id="Task.input:project-identifier.value[x].system">
+			<path value="Task.input.value[x].system"/>
+			<min value="1"/>
+			<fixedUri value="http://medizininformatik-initiative.de/sid/project-identifier"/>
+		</element>
+		<element id="Task.input:project-identifier.value[x].value">
+			<path value="Task.input.value[x].value"/>
+			<min value="1"/>
+		</element>
+		<element id="Task.input:document-reference-location">
+			<path value="Task.input"/>
+			<sliceName value="document-reference-location"/>
+			<min value="1"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:document-reference-location.type">
+			<path value="Task.input.type"/>
+			<binding>
+				<strength value="required"/>
+				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
+			</binding>
+		</element>
+		<element id="Task.input:document-reference-location.type.coding">
+			<path value="Task.input.type.coding"/>
+			<min value="1"/>
+			<max value="1"/>
+		</element>
+		<element id="Task.input:document-reference-location.type.coding.system">
+			<path value="Task.input.type.coding.system"/>
+			<min value="1"/>
+			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
+		</element>
+		<element id="Task.input:document-reference-location.type.coding.code">
+			<path value="Task.input.type.coding.code"/>
+			<min value="1"/>
+			<fixedCode value="document-reference-location"/>
+		</element>
+		<element id="Task.input:document-reference-location.value[x]">
+			<path value="Task.input.value[x]"/>
+			<type>
+				<code value="Reference"/>
+				<targetProfile value="http://hl7.org/fhir/StructureDefinition/DocumentReference"/>
+			</type>
+		</element>
+		<element id="Task.input:document-reference-location.value[x].reference">
 			<path value="Task.input.value[x].reference"/>
 			<min value="1"/>
 		</element>
-		<element id="Task.input:data-set-reference.value[x].identifier">
+		<element id="Task.input:document-reference-location.value[x].identifier">
 			<path value="Task.input.value[x].identifier"/>
 			<max value="0"/>
 		</element>
@@ -171,7 +214,7 @@
 		</element>
 		<element id="Task.output:document-reference-location.value[x].reference">
 			<path value="Task.output.value[x].reference"/>
-            <min value="1"/>
+			<min value="1"/>
 		</element>
 		<element id="Task.output:document-reference-location.value[x].identifier">
 			<path value="Task.output.value[x].identifier"/>
@@ -182,23 +225,24 @@
 			<sliceName value="data-set-status"/>
 		</element>
 		<element id="Task.output:data-set-status.extension">
-			<path value="Task.output.extension" />
+			<path value="Task.output.extension"/>
 			<slicing>
 				<discriminator>
-					<type value="value" />
-					<path value="url" />
+					<type value="value"/>
+					<path value="url"/>
 				</discriminator>
-				<rules value="open" />
+				<rules value="open"/>
 			</slicing>
 		</element>
 		<element id="Task.output:data-set-status.extension:extension-data-set-status-error">
-			<path value="Task.output.extension" />
-			<sliceName value="extension-data-set-status-error" />
-			<min value="0" />
-			<max value="1" />
+			<path value="Task.output.extension"/>
+			<sliceName value="extension-data-set-status-error"/>
+			<min value="0"/>
+			<max value="1"/>
 			<type>
-				<code value="Extension" />
-				<profile value="http://medizininformatik-initiative.de/fhir/StructureDefinition/extension-data-set-status-error" />
+				<code value="Extension"/>
+				<profile
+						value="http://medizininformatik-initiative.de/fhir/StructureDefinition/extension-data-set-status-error"/>
 			</type>
 		</element>
 		<element id="Task.output:data-set-status.type">
@@ -239,7 +283,8 @@
 			<min value="1"/>
 			<binding>
 				<strength value="required"/>
-				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-set-status-receive|#{version}"/>
+				<valueSet
+						value="http://medizininformatik-initiative.de/fhir/ValueSet/data-set-status-receive|#{version}"/>
 			</binding>
 		</element>
 	</differential>

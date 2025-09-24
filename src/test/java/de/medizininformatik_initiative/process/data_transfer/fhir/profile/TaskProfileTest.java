@@ -61,6 +61,22 @@ public class TaskProfileTest
 	}
 
 	@Test
+	public void testTaskStartDataSendValidWithConsortium()
+	{
+		Task task = createValidTaskDataSendStart();
+		task.addInput().setValue(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
+				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM)))
+				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
+
+		ValidationResult result = resourceValidator.validate(task);
+		ValidationSupportRule.logValidationMessages(logger, result);
+
+		assertEquals(0, result.getMessages().stream().filter(m -> ResultSeverityEnum.ERROR.equals(m.getSeverity())
+				|| ResultSeverityEnum.FATAL.equals(m.getSeverity())).count());
+	}
+
+	@Test
 	public void testTaskStartDataSendValidWithReportStatusErrorOutput()
 	{
 		Task task = createValidTaskDataSendStart();
@@ -166,16 +182,21 @@ public class TaskProfileTest
 		task.addInput().setValue(new StringType(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME)).getType()
 				.addCoding(CodeSystems.BpmnMessage.messageName());
 
-		task.addInput()
-				.setValue(new Reference().setReference("https://dsf-dic.de/fhir/Binary/" + UUID.randomUUID().toString())
-						.setType(ResourceType.Binary.name()))
+		task.addInput().setValue(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
+				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM)))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE);
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
 		task.addInput()
 				.setValue(new Identifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
 						.setValue("Test_PROJECT"))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
+		task.addInput()
+				.setValue(new Reference()
+						.setReference("https://dsf-dic.de/fhir/DocumentReference/" + UUID.randomUUID().toString())
+						.setType(ResourceType.DocumentReference.name()))
+				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
 		return task;
 	}
 

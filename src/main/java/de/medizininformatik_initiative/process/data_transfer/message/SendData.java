@@ -20,6 +20,7 @@ import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v1.ProcessPluginApi;
 import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
+import dev.dsf.bpe.v1.constants.NamingSystems;
 import dev.dsf.bpe.v1.variables.Variables;
 import dev.dsf.fhir.client.FhirWebserviceClient;
 import jakarta.ws.rs.WebApplicationException;
@@ -47,12 +48,14 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 	@Override
 	protected Stream<ParameterComponent> getAdditionalInputParameters(DelegateExecution execution, Variables variables)
 	{
-		String binaryId = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE);
+		String documentReferenceId = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION);
 
-		ParameterComponent binaryComponent = new ParameterComponent();
-		binaryComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_REFERENCE);
-		binaryComponent.setValue(new Reference().setType(ResourceType.Binary.name()).setReference(binaryId));
+		ParameterComponent documentReferenceComponent = new ParameterComponent();
+		documentReferenceComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
+		documentReferenceComponent.setValue(
+				new Reference().setType(ResourceType.DocumentReference.name()).setReference(documentReferenceId));
 
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -63,7 +66,16 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 		projectIdentifierComponent.setValue(new Identifier()
 				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
-		return Stream.of(binaryComponent, projectIdentifierComponent);
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
+
+		Task.ParameterComponent consortiumIdentifierComponent = new Task.ParameterComponent();
+		consortiumIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
+		consortiumIdentifierComponent.setValue(new Reference().setType(ResourceType.Organization.name())
+				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier)));
+
+		return Stream.of(documentReferenceComponent, projectIdentifierComponent, consortiumIdentifierComponent);
 	}
 
 	@Override
@@ -94,17 +106,15 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Send data-set failed"));
 		variables.updateTask(task);
 
-		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE,
-				"Send data-set failed");
-
 		logger.warn(
-				"Could not send data-set with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SET_REFERENCE),
+				"Could not send DocumentReference with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
+				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION),
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER),
 				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER), task.getId(),
 				exception.getMessage());
-		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR,
-				"Send data-set - " + exception.getMessage());
+
+		String error = "Send DocumentReference location failed - " + exception.getMessage();
+		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR, error, exception);
 	}
 
 	@Override

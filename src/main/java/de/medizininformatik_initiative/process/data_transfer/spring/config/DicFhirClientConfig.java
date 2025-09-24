@@ -103,9 +103,14 @@ public class DicFhirClientConfig
 	private String fhirStoreProxyPassword;
 
 	@ProcessDocumentation(processNames = {
-			"medizininformatik-initiativede_dataSend" }, description = "The url of the oidc provider to request access tokens (token endpoint)", example = "http://foo.baz/realms/fhir-realm/protocol/openid-connect/token")
-	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.issuer.url:#{null}}")
+			"medizininformatik-initiativede_dataSend" }, description = "The base url of the oidc provider", example = "http://foo.baz/realms/fhir-realm")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.url:#{null}}")
 	private String fhirStoreOAuth2IssuerUrl;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "The path for oidc discovery protocol", recommendation = "Change default value only if path differs from the oidc specification")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.discovery.path:/.well-known/openid-configuration}")
+	private String fhirStoreOAuth2DiscoveryPath;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataSend" }, description = "Identifier of the client (username) used for authentication when accessing the oidc provider token endpoint")
@@ -148,9 +153,19 @@ public class DicFhirClientConfig
 	private String fhirStoreOAuth2ProxyPassword;
 
 	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "If set to true, OIDC validation will only log a warning and not throw an illegal state exception")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.oauth2.discovery.validation.lenient:false}")
+	private boolean fhirStoreOAuth2DiscoveryValidationLenient;
+
+	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataSend" }, description = "To enable debug logging of FHIR resources set to `true`")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.dataLoggingEnabled:false}")
 	private boolean fhirDataLoggingEnabled;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "To enable an additional connection test on startup of the client reading Binary resources as stream, set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.client.connection.test.enabled:false}")
+	private boolean fhirBinaryStreamClientConnectionTestEnabled;
 
 	@Value("${dev.dsf.bpe.fhir.server.organization.identifier.value}")
 	private String localIdentifierValue;
@@ -172,10 +187,14 @@ public class DicFhirClientConfig
 					: new String(api.getProxyConfig().getPassword());
 		}
 
+		// Async client never used in this process, therefore setting connection test to false
+		// and initial polling interval to default value
 		return new FhirClientFactory(trustStorePath, certificatePath, privateKeyPath, fhirStorePrivateKeyPassword,
 				fhirStoreConnectTimeout, fhirStoreSocketTimeout, fhirStoreConnectionRequestTimeout, fhirStoreBaseUrl,
 				fhirStoreUsername, fhirStorePassword, fhirStoreBearerToken, tokenProvider(), proxyUrl, proxyUsername,
-				proxyPassword, fhirStoreHapiClientVerbose, fhirContext, localIdentifierValue, dataLogger());
+				proxyPassword, fhirStoreHapiClientVerbose,
+				FhirClientFactory.DEFAULT_INITIAL_POLLING_INTERVAL_MILLISECONDS, fhirContext, localIdentifierValue,
+				dataLogger(), false, fhirBinaryStreamClientConnectionTestEnabled);
 	}
 
 	public TokenProvider tokenProvider()
@@ -198,9 +217,10 @@ public class DicFhirClientConfig
 					: new String(api.getProxyConfig().getPassword());
 		}
 
-		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2ClientId, fhirStoreOAuth2ClientSecret,
-				fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout, trustStoreOAuth2Path, proxyUrl,
-				proxyUsername, proxyPassword);
+		return new OAuth2TokenClient(fhirStoreOAuth2IssuerUrl, fhirStoreOAuth2DiscoveryPath, fhirStoreOAuth2ClientId,
+				fhirStoreOAuth2ClientSecret, fhirStoreOAuth2ConnectTimeout, fhirStoreOAuth2SocketTimeout,
+				trustStoreOAuth2Path, proxyUrl, proxyUsername, proxyPassword,
+				fhirStoreOAuth2DiscoveryValidationLenient);
 	}
 
 	public DataLogger dataLogger()
