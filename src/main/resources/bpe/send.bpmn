@@ -22,11 +22,11 @@
     <bpmn:sequenceFlow id="Flow_0kkjyst" sourceRef="DataSendMessageStartEvent" targetRef="ReadData" />
     <bpmn:sequenceFlow id="Flow_15vmy2h" sourceRef="EncryptAndStoreData" targetRef="sendData" />
     <bpmn:sequenceFlow id="Flow_0phc02z" sourceRef="deleteData" targetRef="DataSendEndEvent" />
-    <bpmn:intermediateCatchEvent id="waitForRetrieval" name="wait">
+    <bpmn:intermediateCatchEvent id="waitForRetrieval" name="wait&#10;(45 minutes)">
       <bpmn:incoming>Flow_1txtbeg</bpmn:incoming>
       <bpmn:outgoing>Flow_1c71l1d</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_0f9vpum">
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT45M</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:endEvent id="DataSendEndEvent" name="end data send process">
@@ -122,7 +122,7 @@
       <bpmndi:BPMNShape id="Event_1mhzwqb_di" bpmnElement="waitForRetrieval">
         <dc:Bounds x="1062" y="282" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1070" y="323" width="20" height="14" />
+          <dc:Bounds x="1049" y="323" width="62" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1gb5cjp_di" bpmnElement="DataSendEndEvent">
@@ -157,11 +157,11 @@
       <bpmndi:BPMNShape id="Activity_014ar1l_di" bpmnElement="handleErrorSend">
         <dc:Bounds x="1035" y="40" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1gv1mfg_di" bpmnElement="Event_1d8prc6">
-        <dc:Bounds x="862" y="132" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BPMNShape_055ncxa" bpmnElement="Event_1kahazi">
         <dc:Bounds x="702" y="132" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1gv1mfg_di" bpmnElement="Event_1d8prc6">
+        <dc:Bounds x="862" y="132" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0yamo5r_di" bpmnElement="Flow_0yamo5r">
         <di:waypoint x="380" y="190" />
