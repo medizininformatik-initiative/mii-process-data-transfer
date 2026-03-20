@@ -90,7 +90,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 		catch (Exception exception)
 		{
 			String error = "Download data-set failed - " + exception.getMessage();
-			throw new ErrorBoundaryEvent(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error);
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, error);
 		}
 	}
 

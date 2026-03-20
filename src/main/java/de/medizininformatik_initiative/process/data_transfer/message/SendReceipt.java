@@ -41,7 +41,7 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 		if (variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR) != null)
 			return createReceiptError(api, variables);
 		else
-			return createReceiptOk();
+			return createReceiptOk(api);
 	}
 
 	@Override
@@ -71,14 +71,11 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 		return parameterComponent;
 	}
 
-	private List<Task.ParameterComponent> createReceiptOk()
+	private List<Task.ParameterComponent> createReceiptOk(ProcessPluginApi api)
 	{
-		Task.ParameterComponent parameterComponent = new Task.ParameterComponent();
-		parameterComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS);
-		parameterComponent.setValue(new Coding().setSystem(ConstantsBase.CODESYSTEM_DATA_SET_STATUS)
-				.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK));
-
-		return List.of(parameterComponent);
+		return List.of(statusGenerator.createDataSetStatusInput(api.getProcessPluginDefinition().getResourceVersion(),
+				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, api.getProcessPluginDefinition().getResourceVersion(),
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 	}
 }

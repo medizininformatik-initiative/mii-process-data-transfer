@@ -35,6 +35,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="dms-identifier" />
          </coding>
       </type>
@@ -50,6 +51,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="project-identifier" />
          </coding>
       </type>

@@ -34,11 +34,13 @@ public class SendData implements MessageSendTask
 	public List<ParameterComponent> getAdditionalInputParameters(ProcessPluginApi api, Variables variables,
 			SendTaskValues sendTaskValues, Target target)
 	{
+		String version = api.getProcessPluginDefinition().getResourceVersion();
 		String documentReferenceId = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION);
 
 		ParameterComponent documentReferenceComponent = new ParameterComponent();
 		documentReferenceComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(version)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
 		documentReferenceComponent.setValue(
 				new Reference().setType(ResourceType.DocumentReference.name()).setReference(documentReferenceId));
@@ -48,7 +50,7 @@ public class SendData implements MessageSendTask
 
 		Task.ParameterComponent projectIdentifierComponent = new Task.ParameterComponent();
 		projectIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
+				.setVersion(version).setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
 		projectIdentifierComponent.setValue(new Identifier()
 				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
@@ -57,6 +59,7 @@ public class SendData implements MessageSendTask
 
 		Task.ParameterComponent consortiumIdentifierComponent = new Task.ParameterComponent();
 		consortiumIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(version)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
 		consortiumIdentifierComponent.setValue(new Reference().setType(ResourceType.Organization.name())
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier)));

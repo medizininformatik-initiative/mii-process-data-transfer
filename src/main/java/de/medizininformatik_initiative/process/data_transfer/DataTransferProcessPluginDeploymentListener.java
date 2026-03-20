@@ -72,6 +72,9 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 			Objects.requireNonNull(conformance, "Connection test for DSF FHIR Client with ID '" + fhirStoreIdDms
 					+ "' failed - CapabilityStatement is null");
 
+			Objects.requireNonNull(keyProvider.getPublicKey(), "PublicKey");
+			Objects.requireNonNull(keyProvider.getPrivateKey(), "PrivateKey");
+
 			keyProvider.createPublicKeyIfNotExists();
 		}
 	}

@@ -1,8 +1,8 @@
 <Task xmlns="http://hl7.org/fhir">
    <meta>
-      <profile value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-send-start|1.1" />
+      <profile value="http://medizininformatik-initiative.de/fhir/StructureDefinition/task-data-send-start|2.0" />
    </meta>
-   <instantiatesCanonical value="http://medizininformatik-initiative.de/bpe/Process/dataSend|1.1"/>
+   <instantiatesCanonical value="http://medizininformatik-initiative.de/bpe/Process/dataSend|2.0"/>
    <status value="requested" />
    <intent value="order" />
    <authoredOn value="2022-11-16T11:00:00+01:00" />
@@ -35,6 +35,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="dms-identifier" />
          </coding>
       </type>
@@ -50,6 +51,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="project-identifier" />
          </coding>
       </type>

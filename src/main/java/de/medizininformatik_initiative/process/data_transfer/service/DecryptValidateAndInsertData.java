@@ -96,7 +96,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		catch (Exception exception)
 		{
 			String error = "Decrypt, validate or insert data-set failed - " + exception.getMessage();
-			throw new ErrorBoundaryEvent(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR, error);
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, error);
 		}
 	}
 
