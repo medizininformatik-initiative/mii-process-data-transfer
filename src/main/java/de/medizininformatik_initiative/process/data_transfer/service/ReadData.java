@@ -1,11 +1,11 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Attachment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
@@ -18,82 +18,76 @@ import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.process.data_transfer.variables.DataResource;
-import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
-import de.medizininformatik_initiative.processes.common.fhir.client.logging.DataLogger;
+import de.medizininformatik_initiative.process.data_transfer.variables.ProcessConfig;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.constants.NamingSystems;
-import dev.dsf.bpe.v1.variables.Variables;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.client.dsf.DsfClient;
+import dev.dsf.bpe.v2.constants.NamingSystems;
+import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
+import dev.dsf.bpe.v2.service.DataLogger;
+import dev.dsf.bpe.v2.service.DsfClientProvider;
+import dev.dsf.bpe.v2.service.TaskHelper;
+import dev.dsf.bpe.v2.variables.Variables;
 
-public class ReadData extends AbstractServiceDelegate implements InitializingBean
+public class ReadData implements ServiceTask
 {
 	private static final Logger logger = LoggerFactory.getLogger(ReadData.class);
 
-	private final FhirClientFactory fhirClientFactory;
+	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamReadEnabled;
 
-	private final DataLogger dataLogger;
-
-	public ReadData(ProcessPluginApi api, FhirClientFactory fhirClientFactory, boolean fhirBinaryStreamReadEnabled,
-			DataLogger dataLogger)
+	public ReadData(String fhirStoreId, boolean fhirBinaryStreamReadEnabled)
 	{
-		super(api);
-		this.fhirClientFactory = fhirClientFactory;
+		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadEnabled = fhirBinaryStreamReadEnabled;
-		this.dataLogger = dataLogger;
 	}
 
 	@Override
-	public void afterPropertiesSet() throws Exception
-	{
-		super.afterPropertiesSet();
-		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
-		Objects.requireNonNull(dataLogger, "dataLogger");
-	}
-
-	@Override
-	protected void doExecute(DelegateExecution execution, Variables variables)
+	public void execute(ProcessPluginApi api, Variables variables) throws ErrorBoundaryEvent, Exception
 	{
 		Task task = variables.getStartTask();
-		String dmsIdentifier = getDmsIdentifier(task);
-		String consortiumIdentifier = getConsortiumIdentifier(task);
-		String projectIdentifier = getProjectIdentifier(task, dmsIdentifier);
+		String dmsIdentifier = getDmsIdentifier(api.getTaskHelper(), task);
+		String consortiumIdentifier = getConsortiumIdentifier(api.getTaskHelper(), task);
+		String projectIdentifier = getProjectIdentifier(task);
 
-		logger.info(
-				"Reading data-set on FHIR store with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-				fhirClientFactory.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId());
+		DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
+
+		ProcessConfig processConfig = new ProcessConfig(Map.of("fhirStoreBaseUrl", client.getBaseUrl(),
+				"projectIdentifier", ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER + "|" + projectIdentifier,
+				"recipientDms", dmsIdentifier));
+
+		logger.info("Reading data-set {}", processConfig);
 
 		try
 		{
-			DocumentReference documentReference = readDocumentReference(dmsIdentifier, projectIdentifier, task.getId());
-			Stream<DataResource> attachments = readAttachments(documentReference, projectIdentifier);
-			List<Resource> resources = getResources(attachments, dmsIdentifier, projectIdentifier, task.getId());
+			DocumentReference documentReference = readDocumentReference(client, projectIdentifier, api.getDataLogger(),
+					processConfig.toString());
+			processConfig.add("documentReference.id", documentReference.getId());
+
+			Stream<DataResource> attachments = readAttachments(client, documentReference, processConfig.toString());
+			List<Resource> resources = getResources(attachments, api.getDataLogger(), processConfig.toString());
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER, dmsIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER,
 					consortiumIdentifier);
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
+			variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
 					documentReference);
-			variables.setResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
+			variables.setFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES,
+					resources);
 		}
 		catch (Exception exception)
 		{
-			logger.warn(
-					"Could not read data-set on FHIR store with baseUrl '{}' for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					fhirClientFactory.getFhirBaseUrl(), dmsIdentifier, projectIdentifier, task.getId(),
-					exception.getMessage());
-
+			logger.warn("Reading data-set failed - {} {}", exception.getMessage(), processConfig);
 			throw new RuntimeException("Reading data-set failed - " + exception.getMessage(), exception);
 		}
 	}
 
-	private String getProjectIdentifier(Task task, String dmsIdentifier)
+	private String getProjectIdentifier(Task task)
 	{
 		List<String> identifiers = task.getInput().stream().filter(i -> i.getType().getCoding().stream()
 				.anyMatch(c -> ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER.equals(c.getSystem())
@@ -103,19 +97,18 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.map(Identifier::getValue).toList();
 
 		if (identifiers.isEmpty())
-			throw new IllegalArgumentException("No project-identifier present in Task.input");
+			throw new IllegalArgumentException("Task.input:project-identifier missing");
 
 		if (identifiers.size() > 1)
-			logger.warn(
-					"Found {} project-identifier inputs for DMS '{}' referenced in Task with id '{}', using the first ('{}')",
-					identifiers.size(), dmsIdentifier, task.getId(), identifiers.get(0));
+			logger.warn("Found {} Task.input:project-identifier, using the first '{}'", identifiers.size(),
+					identifiers.getFirst());
 
-		return identifiers.get(0);
+		return identifiers.getFirst();
 	}
 
-	private String getConsortiumIdentifier(Task task)
+	private String getConsortiumIdentifier(TaskHelper helper, Task task)
 	{
-		return api.getTaskHelper()
+		return helper
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
 				.orElse(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
@@ -123,106 +116,106 @@ public class ReadData extends AbstractServiceDelegate implements InitializingBea
 				.getIdentifier().getValue();
 	}
 
-	private String getDmsIdentifier(Task task)
+	private String getDmsIdentifier(TaskHelper helper, Task task)
 	{
-		return api.getTaskHelper()
+		return helper
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DMS_IDENTIFIER, Reference.class)
-				.orElseThrow(() -> new IllegalArgumentException("No DMS identifier present in Task.input"))
-				.getIdentifier().getValue();
+				.orElseThrow(() -> new IllegalArgumentException("Task.input:dms-identifier missing")).getIdentifier()
+				.getValue();
 	}
 
-	private DocumentReference readDocumentReference(String dmsIdentifier, String projectIdentifier, String taskId)
+	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
 	{
-		List<DocumentReference> documentReferences = fhirClientFactory.getStandardFhirClient()
-				.searchDocumentReferences(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER, projectIdentifier)
+		return provider.getById(fhirStoreId)
+				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
+	}
+
+	private DocumentReference readDocumentReference(DsfClient client, String projectIdentifier, DataLogger dataLogger,
+			String processConfig)
+	{
+		String projectIdentifierWithSystem = ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER + "|"
+				+ projectIdentifier;
+		Map<String, List<String>> identifierSearchParam = Map.of("identifier", List.of(projectIdentifierWithSystem));
+
+		List<DocumentReference> documentReferences = client.search(DocumentReference.class, identifierSearchParam)
 				.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
 				.filter(r -> r instanceof DocumentReference).map(r -> (DocumentReference) r).toList();
 
 		if (documentReferences.isEmpty())
-			throw new IllegalArgumentException("Could not find any DocumentReference with matching project-identifier");
+			throw new RuntimeException("Could not find DocumentReference " + processConfig);
+
+		DocumentReference documentReference = documentReferences.getFirst();
 
 		if (documentReferences.size() > 1)
-			logger.warn(
-					"Found {} DocumentReferences for DMS '{}' and project-identifier '{}' on FHIR store with baseURL '{}' referenced in Task with id '{}', using the first ('{}')",
-					documentReferences.size(), dmsIdentifier, projectIdentifier, fhirClientFactory.getFhirBaseUrl(),
-					taskId, documentReferences.get(0).getIdElement().getValue());
+			logger.warn("Found {} DocumentReferences, using the first with id '{}' {}", documentReferences.size(),
+					documentReference.getIdElement().getValue(), processConfig);
 
-		DocumentReference documentReference = documentReferences.get(0);
-		dataLogger.logResource("DocumentReference for DMS '" + dmsIdentifier + "' and project-identifier '"
-				+ projectIdentifier + "' on FHIR store with baseURL '" + fhirClientFactory.getFhirBaseUrl()
-				+ "' referenced in Task with id '" + taskId + "'", documentReference);
-
+		dataLogger.log("DocumentReference " + processConfig, documentReference);
 		return documentReference;
 	}
 
-	private Stream<DataResource> readAttachments(DocumentReference documentReference, String projectIdentifier)
+	private Stream<DataResource> readAttachments(DsfClient client, DocumentReference documentReference,
+			String processConfig)
 	{
 		return Stream.of(documentReference).filter(DocumentReference::hasContent)
 				.flatMap(dr -> dr.getContent().stream())
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
 				.map(DocumentReference.DocumentReferenceContentComponent::getAttachment)
-				.map(a -> readAttachment(a, projectIdentifier));
+				.map(a -> readAttachment(client, a, processConfig));
 	}
 
-	private DataResource readAttachment(Attachment attachment, String projectIdentifier)
+	private DataResource readAttachment(DsfClient client, Attachment attachment, String processConfig)
 	{
-		String url = getAttachmentUrl(attachment);
-		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(url);
+		String url = getAttachmentUrl(attachment, processConfig);
+		IdType urlIdType = checkValidKdsFhirStoreUrlAndGetIdType(client, url, processConfig);
 
 		if (ResourceType.Binary.name().equals(urlIdType.getResourceType()) && fhirBinaryStreamReadEnabled)
 		{
-			String mimetype = getAttachmentMimeType(attachment, projectIdentifier);
+			String mimetype = getAttachmentMimeType(attachment, processConfig);
 			return DataResource.of(urlIdType, mimetype);
 		}
 		else
 		{
-			Resource resource = fhirClientFactory.getStandardFhirClient().read(urlIdType);
+			Resource resource = client.read(urlIdType.getResourceType(), urlIdType.getIdPart());
 			return DataResource.of(resource);
 		}
 	}
 
-	private String getAttachmentUrl(Attachment attachment)
+	private String getAttachmentUrl(Attachment attachment, String processConfig)
 	{
 		return Optional.of(attachment).filter(Attachment::hasUrl).map(Attachment::getUrl).orElseThrow(
-				() -> new IllegalArgumentException("Could not find any attachment URLs in DocumentReference"));
+				() -> new IllegalArgumentException("DocumentReference.content.attachment.url missing" + processConfig));
 	}
 
-	private String getAttachmentMimeType(Attachment attachment, String projectIdentifier)
+	private String getAttachmentMimeType(Attachment attachment, String processConfig)
 	{
 		return Optional.of(attachment).filter(Attachment::hasContentType).map(Attachment::getContentType)
 				.orElseThrow(() -> new IllegalArgumentException(
-						"Could not find any attachment contentType (mimeType) in DocumentReference for project-identifier '"
-								+ projectIdentifier + "'"));
+						"DocumentReference.content.attachment.contentType missing " + processConfig));
 	}
 
-	private IdType checkValidKdsFhirStoreUrlAndGetIdType(String url)
+	private IdType checkValidKdsFhirStoreUrlAndGetIdType(DsfClient client, String url, String processConfig)
 	{
 		IdType idType = new IdType(url);
 
-		// expecting no Base URL or, Base URL equal to KDS client Base URL
-		boolean hasValidBaseUrl = !idType.hasBaseUrl()
-				|| fhirClientFactory.getFhirBaseUrl().equals(idType.getBaseUrl());
+		// expecting no baseUrl or, baseUrl equal to client baseUrl
+		boolean hasValidBaseUrl = !idType.hasBaseUrl() || client.getBaseUrl().equals(idType.getBaseUrl());
 		boolean isResourceReference = idType.hasResourceType() && idType.hasIdPart();
 
 		if (hasValidBaseUrl && isResourceReference)
 			return idType;
 		else
-			throw new IllegalArgumentException("Attachment URL '" + url
-					+ "' in DocumentReference is not a valid KDS FHIR store reference (baseUrl must match '"
-					+ fhirClientFactory.getFhirBaseUrl() + "', resource type must be set, id must be set)");
+			throw new RuntimeException("DocumentReference.content.attachment.url '" + url
+					+ "' is not valid (baseUrl must match client baseUrl, resource type must be set, id must be set) "
+					+ processConfig);
 	}
 
-	private List<Resource> getResources(Stream<DataResource> dataResources, String dmsIdentifier,
-			String projectIdentifier, String taskId)
+	private List<Resource> getResources(Stream<DataResource> dataResources, DataLogger dataLogger, String processConfig)
 	{
 		List<Resource> resources = dataResources.map(DataResource::toResource).filter(Objects::nonNull).toList();
-
 		return combineListResources(resources)
-				.peek(r -> dataLogger.logResource("Read attachment for DMS '" + dmsIdentifier
-						+ "' and project-identifier '" + projectIdentifier + "' on FHIR store with baseURL '"
-						+ fhirClientFactory.getFhirBaseUrl() + "' referenced in Task with id '" + taskId + "'", r))
-				.toList();
+				.peek(r -> dataLogger.log("DocumentReference.content.attachment " + processConfig, r)).toList();
 	}
 
 	private Stream<Resource> combineListResources(List<Resource> resources)

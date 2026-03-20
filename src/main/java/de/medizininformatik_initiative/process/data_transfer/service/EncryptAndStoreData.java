@@ -5,7 +5,6 @@ import static org.hl7.fhir.r4.model.Enumerations.DocumentReferenceStatus.CURRENT
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.List;
@@ -14,12 +13,9 @@ import java.util.Optional;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.camunda.bpm.engine.delegate.BpmnError;
-import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Attachment;
 import org.hl7.fhir.r4.model.Binary;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.Endpoint;
 import org.hl7.fhir.r4.model.IdType;
@@ -35,48 +31,47 @@ import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
-import de.medizininformatik_initiative.processes.common.crypto.RsaAesGcmUtil;
-import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.constants.NamingSystems;
-import dev.dsf.bpe.v1.variables.Target;
-import dev.dsf.bpe.v1.variables.Variables;
+import de.medizininformatik_initiative.processes.common.util.MimeTypeHelper;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.client.dsf.DelayStrategy;
+import dev.dsf.bpe.v2.client.dsf.DsfClient;
+import dev.dsf.bpe.v2.constants.CodeSystems;
+import dev.dsf.bpe.v2.constants.NamingSystems;
+import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
+import dev.dsf.bpe.v2.service.DsfClientProvider;
+import dev.dsf.bpe.v2.variables.Target;
+import dev.dsf.bpe.v2.variables.Variables;
 import jakarta.ws.rs.core.MediaType;
 
-public class EncryptAndStoreData extends AbstractServiceDelegate implements InitializingBean
+public class EncryptAndStoreData implements ServiceTask, InitializingBean
 {
 	private static final Logger logger = LoggerFactory.getLogger(EncryptAndStoreData.class);
 
-	private final KeyProvider keyProvider;
-	private final FhirClientFactory fhirClientFactory;
-
-	private final DataSetStatusGenerator statusGenerator;
+	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
+	private final DataSetStatusGenerator statusGenerator;
+	private final KeyProvider keyProvider;
 
-	public EncryptAndStoreData(ProcessPluginApi api, KeyProvider keyProvider, FhirClientFactory fhirClientFactory,
-			DataSetStatusGenerator statusGenerator, boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
+	public EncryptAndStoreData(String fhirStoreId, boolean fhirBinaryStreamReadUseHapiBlobStorageOperation,
+			DataSetStatusGenerator statusGenerator, KeyProvider keyProvider)
 	{
-		super(api);
-		this.keyProvider = keyProvider;
-		this.fhirClientFactory = fhirClientFactory;
-		this.statusGenerator = statusGenerator;
+		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
+		this.statusGenerator = statusGenerator;
+		this.keyProvider = keyProvider;
 	}
 
 	@Override
 	public void afterPropertiesSet() throws Exception
 	{
-		super.afterPropertiesSet();
-		Objects.requireNonNull(keyProvider, "keyProvider");
-		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
 	@Override
-	protected void doExecute(DelegateExecution execution, Variables variables)
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
 		Task task = variables.getStartTask();
 		String projectIdentifier = variables
@@ -85,9 +80,9 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		DocumentReference initialDocumentReference = variables
-				.getResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE);
+				.getFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE);
 		List<Resource> resources = variables
-				.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
+				.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
 
 		logger.info(
 				"Encrypting and storing data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
@@ -97,57 +92,46 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 
 		try
 		{
-			PublicKey publicKey = readPublicKey(consortiumIdentifier, dmsIdentifier, projectIdentifier, task.getId());
-			String localOrganizationIdentifier = getLocalOrganizationIdentifier();
+			PublicKey publicKey = readPublicKey(api, consortiumIdentifier, dmsIdentifier, projectIdentifier,
+					task.getId());
 
-			DocumentReference transferDocumentReference = createAndStoreDocumentReference(projectIdentifier,
+			DocumentReference transferDocumentReference = createAndStoreDocumentReference(api, projectIdentifier,
 					initialDocumentReference, dmsIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
-					getDsfFhirServerAbsoluteId(transferDocumentReference.getIdElement()));
+					getDsfFhirServerAbsoluteId(api, transferDocumentReference.getIdElement()));
 
-			encryptAndStoreData(transferDocumentReference, transferBinaryReferenceList, resources, publicKey,
-					localOrganizationIdentifier, dmsIdentifier, variables);
+			encryptAndStoreData(api, transferDocumentReference, transferBinaryReferenceList, resources, publicKey,
+					variables);
 			// references to encrypted and stored data-sets saved to variables directly
 			// after processing each single data-set
 
-			transferDocumentReference = updateDocumentReference(transferDocumentReference, transferBinaryReferenceList);
+			transferDocumentReference = updateDocumentReference(api, transferDocumentReference,
+					transferBinaryReferenceList);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
-					getDsfFhirServerAbsoluteId(transferDocumentReference.getIdElement()));
+					getDsfFhirServerAbsoluteId(api, transferDocumentReference.getIdElement()));
 
 			logger.info(
 					"Stored DocumentReference with id '{}' provided for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
 					transferDocumentReference.getId(), dmsIdentifier, projectIdentifier, task.getId());
-			sendMail(task, projectIdentifier, dmsIdentifier, transferDocumentReference.getIdElement());
+			sendMail(api, task, projectIdentifier, dmsIdentifier, transferDocumentReference.getIdElement());
 
-			Target target = createTarget(variables, consortiumIdentifier, dmsIdentifier);
+			Target target = createTarget(api, variables, consortiumIdentifier, dmsIdentifier);
 			variables.setTarget(target);
 		}
 		catch (Exception exception)
 		{
-			task.setStatus(Task.TaskStatus.FAILED);
-			task.addOutput(
-					statusGenerator.createDataSetStatusOutput(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_SENT,
-							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS,
-							"Encrypting or storing data-set failed"));
-			variables.updateTask(task);
-
-			logger.warn(
-					"Could not encrypt or store data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
-
-			variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES,
+			variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES,
 					transferBinaryReferenceList);
 
 			String error = "Encrypting and storing data-set failed - " + exception.getMessage();
-			throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR, error, exception);
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_SENT, error);
 		}
 	}
 
-	private PublicKey readPublicKey(String consortiumIdentifier, String dmsIdentifier, String projectIdentifier,
-			String taskId)
+	private PublicKey readPublicKey(ProcessPluginApi api, String consortiumIdentifier, String dmsIdentifier,
+			String projectIdentifier, String taskId)
 	{
-		String url = getEndpointUrl(consortiumIdentifier, dmsIdentifier);
+		String url = getEndpointUrl(api, consortiumIdentifier, dmsIdentifier);
 		Optional<Bundle> publicKeyBundleOptional = keyProvider.readPublicKeyIfExists(url);
 
 		if (publicKeyBundleOptional.isEmpty())
@@ -168,9 +152,9 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		return publicKey;
 	}
 
-	private String getEndpointUrl(String consortiumIdentifier, String organizationIdentifier)
+	private String getEndpointUrl(ProcessPluginApi api, String consortiumIdentifier, String organizationIdentifier)
 	{
-		return getEndpoint(consortiumIdentifier, organizationIdentifier).getAddress();
+		return getEndpoint(api, consortiumIdentifier, organizationIdentifier).getAddress();
 	}
 
 	private DocumentReference getDocumentReference(Bundle bundle, String dmsIdentifier, String projectIdentifier,
@@ -188,7 +172,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 					"Found {} DocumentReferences in PublicKey Bundle provided by DMS '{}' and project-identifier '{}' referenced in Task with id '{}', using the first",
 					documentReferences.size(), dmsIdentifier, projectIdentifier, taskId);
 
-		return documentReferences.get(0);
+		return documentReferences.getFirst();
 	}
 
 	private Binary getBinary(Bundle bundle, String dmsIdentifier, String projectIdentifier, String taskId)
@@ -204,7 +188,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 					"Found {} Binaries in PublicKey Bundle of DMS '{}' and project-identifier '{}' referenced in Task with id '{}', using the first",
 					binaries.size(), dmsIdentifier, projectIdentifier, taskId);
 
-		return binaries.get(0);
+		return binaries.getFirst();
 	}
 
 	private PublicKey getPublicKey(Binary binary)
@@ -247,13 +231,7 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 							+ Hex.encodeHexString(publicKeyHash) + ")");
 	}
 
-	private String getLocalOrganizationIdentifier()
-	{
-		return api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
-				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
-	}
-
-	private DocumentReference createAndStoreDocumentReference(String projectIdentifier,
+	private DocumentReference createAndStoreDocumentReference(ProcessPluginApi api, String projectIdentifier,
 			DocumentReference initialDocumentReference, String dmsIdentifier)
 	{
 		DocumentReference documentReference = new DocumentReference();
@@ -272,12 +250,11 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		// to use this DocumentReference as security context for the Binary resources which are created later on.
 		documentReference.addContent().setAttachment(new Attachment().setTitle("dummy-attachment"));
 
-		return api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-				.create(documentReference);
+		return api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).create(documentReference);
 	}
 
-	private DocumentReference updateDocumentReference(DocumentReference documentReference,
+	private DocumentReference updateDocumentReference(ProcessPluginApi api, DocumentReference documentReference,
 			ListResource transferBinaryReferenceList)
 	{
 		documentReference.setDocStatus(DocumentReference.ReferredDocumentStatus.FINAL);
@@ -289,74 +266,67 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 				.forEach(e -> documentReference.addContent().getAttachment().setUrl(e.getItem().getReference())
 						.setContentType(e.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)));
 
-		return api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-				.update(documentReference);
+		return api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(documentReference);
 	}
 
-	private void encryptAndStoreData(DocumentReference documentReference, ListResource transferBinaryReferenceList,
-			List<Resource> resources, PublicKey publicKey, String sendingOrganizationIdentifier,
-			String receivingOrganizationIdentifier, Variables variables)
+	private void encryptAndStoreData(ProcessPluginApi api, DocumentReference documentReference,
+			ListResource transferBinaryReferenceList, List<Resource> resources, PublicKey publicKey,
+			Variables variables)
 	{
-		resources.forEach(r -> doEncryptAndStoreData(documentReference, transferBinaryReferenceList, r, publicKey,
-				sendingOrganizationIdentifier, receivingOrganizationIdentifier, variables));
+		resources.forEach(r -> doEncryptAndStoreData(api, documentReference, transferBinaryReferenceList, r, publicKey,
+				variables));
 	}
 
-	private void doEncryptAndStoreData(DocumentReference documentReference, ListResource transferBinaryReferenceList,
-			Resource resource, PublicKey publicKey, String sendingOrganizationIdentifier,
-			String receivingOrganizationIdentifier, Variables variables)
+	private void doEncryptAndStoreData(ProcessPluginApi api, DocumentReference documentReference,
+			ListResource transferBinaryReferenceList, Resource resource, PublicKey publicKey, Variables variables)
 	{
-		String securityContext = getDsfFhirServerAbsoluteId(documentReference.getIdElement());
+		String securityContext = getDsfFhirServerAbsoluteId(api, documentReference.getIdElement());
 
 		if (resource instanceof ListResource listResource)
-			encryptAndStoreDataStreams(listResource, transferBinaryReferenceList, publicKey,
-					sendingOrganizationIdentifier, receivingOrganizationIdentifier, securityContext, variables);
+			encryptAndStoreDataStreams(api, listResource, transferBinaryReferenceList, publicKey, securityContext,
+					variables);
 		else
-			encryptAndStoreDataResource(resource, transferBinaryReferenceList, publicKey, sendingOrganizationIdentifier,
-					receivingOrganizationIdentifier, securityContext, variables);
+			encryptAndStoreDataResource(api, resource, transferBinaryReferenceList, publicKey, securityContext,
+					variables);
 	}
 
-	private void encryptAndStoreDataStreams(ListResource listResource, ListResource transferBinaryReferenceList,
-			PublicKey publicKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier,
-			String securityContext, Variables variables)
+	private void encryptAndStoreDataStreams(ProcessPluginApi api, ListResource listResource,
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
 	{
 		listResource.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
-				.forEach(e -> encryptAndStoreDataStream(e, transferBinaryReferenceList, publicKey,
-						sendingOrganizationIdentifier, receivingOrganizationIdentifier, securityContext, variables));
+				.forEach(e -> encryptAndStoreDataStream(api, e, transferBinaryReferenceList, publicKey, securityContext,
+						variables));
 	}
 
-	private void encryptAndStoreDataStream(ListResource.ListEntryComponent item,
-			ListResource transferBinaryReferenceList, PublicKey publicKey, String sendingOrganizationIdentifier,
-			String receivingOrganizationIdentifier, String securityContext, Variables variables)
+	private void encryptAndStoreDataStream(ProcessPluginApi api, ListResource.ListEntryComponent item,
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
 	{
-		IdType url = (IdType) item.getItem().getReferenceElement();
+		String binaryId = item.getItem().getReferenceElement().getIdPart();
+		if (fhirBinaryStreamReadUseHapiBlobStorageOperation)
+			binaryId += "/$binary-access-read";
 		String mimeType = item.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-		InputStream stream = encryptDataStream(url, mimeType, publicKey, sendingOrganizationIdentifier,
-				receivingOrganizationIdentifier);
-		storeBinaryStream(stream, mimeType, securityContext, transferBinaryReferenceList, variables);
+		InputStream stream = encryptDataStream(api, binaryId, mimeType, publicKey);
+		storeBinaryStream(api, stream, mimeType, securityContext, transferBinaryReferenceList, variables);
 	}
 
-	private void encryptAndStoreDataResource(Resource resource, ListResource transferBinaryReferenceList,
-			PublicKey publicKey, String sendingOrganizationIdentifier, String receivingOrganizationIdentifier,
-			String securityContext, Variables variables)
+	private void encryptAndStoreDataResource(ProcessPluginApi api, Resource resource,
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
 	{
-		Binary binaryResource = encryptDataResource(resource, publicKey, sendingOrganizationIdentifier,
-				receivingOrganizationIdentifier);
-		storeBinaryResource(binaryResource, securityContext, transferBinaryReferenceList, variables);
+		Binary binaryResource = encryptDataResource(api, resource, publicKey);
+		storeBinaryResource(api, binaryResource, securityContext, transferBinaryReferenceList, variables);
 	}
 
-	private InputStream encryptDataStream(IdType url, String mimetype, PublicKey publicKey,
-			String sendingOrganizationIdentifier, String receivingOrganizationIdentifier)
+	private InputStream encryptDataStream(ProcessPluginApi api, String binaryId, String mimetype, PublicKey publicKey)
 	{
 		try
 		{
-			InputStream stream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
-					fhirBinaryStreamReadUseHapiBlobStorageOperation);
+			InputStream stream = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId).readBinary(binaryId,
+					MediaType.valueOf(mimetype));
 
-			return RsaAesGcmUtil.encrypt(publicKey, stream, sendingOrganizationIdentifier,
-					receivingOrganizationIdentifier);
+			return api.getCryptoService().createRsaKem().encrypt(stream, publicKey);
 		}
 		catch (Exception exception)
 		{
@@ -365,16 +335,14 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		}
 	}
 
-	private Binary encryptDataResource(Resource resource, PublicKey publicKey, String sendingOrganizationIdentifier,
-			String receivingOrganizationIdentifier)
+	private Binary encryptDataResource(ProcessPluginApi api, Resource resource, PublicKey publicKey)
 	{
 		try
 		{
-			byte[] toEncrypt = getBytesToEncrypt(resource);
-			byte[] encrypted = RsaAesGcmUtil.encrypt(publicKey, toEncrypt, sendingOrganizationIdentifier,
-					receivingOrganizationIdentifier);
+			byte[] toEncrypt = MimeTypeHelper.getData(api.getFhirContext(), resource);
+			byte[] encrypted = api.getCryptoService().createRsaKem().encrypt(toEncrypt, publicKey);
 
-			return new Binary().setData(encrypted).setContentType(getMimeType(resource));
+			return new Binary().setData(encrypted).setContentType(MimeTypeHelper.getMimeType(resource));
 		}
 		catch (Exception exception)
 		{
@@ -383,17 +351,18 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		}
 	}
 
-	private void storeBinaryStream(InputStream inputStream, String mimeType, String securityContext,
-			ListResource transferBinaryReferenceList, Variables variables)
+	private void storeBinaryStream(ProcessPluginApi api, InputStream inputStream, String mimeType,
+			String securityContext, ListResource transferBinaryReferenceList, Variables variables)
 	{
 		try (InputStream in = inputStream)
 		{
 			MediaType mediaType = MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM);
-			IdType id = api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
+			IdType id = api.getDsfClientProvider().getLocal()
+					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+							DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN))
 					.createBinary(in, mediaType, securityContext).getIdElement();
 
-			createAndSaveListEntryComponent(transferBinaryReferenceList, id, mimeType, variables);
+			createAndSaveListEntryComponent(api, transferBinaryReferenceList, id, mimeType, variables);
 		}
 		catch (Exception exception)
 		{
@@ -401,26 +370,26 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 		}
 	}
 
-	private void storeBinaryResource(Binary binary, String securityContext, ListResource transferBinaryReferenceList,
-			Variables variables)
+	private void storeBinaryResource(ProcessPluginApi api, Binary binary, String securityContext,
+			ListResource transferBinaryReferenceList, Variables variables)
 	{
-		storeBinaryStream(new ByteArrayInputStream(binary.getData()), binary.getContentType(), securityContext,
+		storeBinaryStream(api, new ByteArrayInputStream(binary.getData()), binary.getContentType(), securityContext,
 				transferBinaryReferenceList, variables);
 	}
 
-	private Target createTarget(Variables variables, String consortiumIdentifier, String dmsIdentifier)
+	private Target createTarget(ProcessPluginApi api, Variables variables, String consortiumIdentifier,
+			String dmsIdentifier)
 	{
-		Endpoint endpoint = getEndpoint(consortiumIdentifier, dmsIdentifier);
+		Endpoint endpoint = getEndpoint(api, consortiumIdentifier, dmsIdentifier);
 		return variables.createTarget(dmsIdentifier, getEndpointIdentifierValue(endpoint), endpoint.getAddress());
 	}
 
-	private Endpoint getEndpoint(String consortiumIdentifier, String organizationIdentifier)
+	private Endpoint getEndpoint(ProcessPluginApi api, String consortiumIdentifier, String organizationIdentifier)
 	{
 		return api.getEndpointProvider()
 				.getEndpoint(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier),
 						NamingSystems.OrganizationIdentifier.withValue(organizationIdentifier),
-						new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)
-								.setCode(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE_VALUE_DMS))
+						CodeSystems.OrganizationRole.dms())
 				.orElseThrow(() -> new RuntimeException("Could not find Endpoint of organization with identifier '"
 						+ organizationIdentifier + "' in  consortium '" + consortiumIdentifier + "'"));
 	}
@@ -432,50 +401,40 @@ public class EncryptAndStoreData extends AbstractServiceDelegate implements Init
 						"Endpoint with id '" + endpoint.getId() + "' does not contain any identifier"));
 	}
 
-	private void createAndSaveListEntryComponent(ListResource transferBinaryReferenceList, IdType id, String mimetype,
-			Variables variables)
+	private void createAndSaveListEntryComponent(ProcessPluginApi api, ListResource transferBinaryReferenceList,
+			IdType id, String mimetype, Variables variables)
 	{
 		ListResource.ListEntryComponent entry = transferBinaryReferenceList.addEntry();
-		entry.getItem().setReference(getDsfFhirServerAbsoluteId(id));
+		entry.getItem().setReference(getDsfFhirServerAbsoluteId(api, id));
 		entry.addExtension().setUrl(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)
 				.setValue(new StringType(mimetype));
 
-		variables.setResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES,
+		variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES,
 				transferBinaryReferenceList);
 	}
 
-	private byte[] getBytesToEncrypt(Resource resource)
+	private String getDsfFhirServerAbsoluteId(ProcessPluginApi api, IdType idType)
 	{
-		if (resource instanceof Binary binary)
-			return binary.getData();
-		else
-			return api.getFhirContext().newXmlParser().encodeResourceToString(resource)
-					.getBytes(StandardCharsets.UTF_8);
+		return new IdType(api.getDsfClientProvider().getLocal().getBaseUrl(), idType.getResourceType(),
+				idType.getIdPart(), idType.getVersionIdPart()).getValue();
 	}
 
-	private String getDsfFhirServerAbsoluteId(IdType idType)
-	{
-		return new IdType(api.getFhirWebserviceClientProvider().getLocalWebserviceClient().getBaseUrl(),
-				idType.getResourceType(), idType.getIdPart(), idType.getVersionIdPart()).getValue();
-	}
-
-	private void sendMail(Task task, String projectIdentifier, String dmsIdentifier, IdType documentReferenceIdType)
+	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
+			IdType documentReferenceIdType)
 	{
 		String subject = "Data-set provided in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "A data-set has been successfully provided in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task with id '" + task.getId()
 				+ "' for DMS '" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
 				+ "' and can be accessed using the following url:\n" + "- "
-				+ getDsfFhirServerAbsoluteId(documentReferenceIdType);
+				+ getDsfFhirServerAbsoluteId(api, documentReferenceIdType);
 
 		api.getMailService().send(subject, message);
 	}
 
-	private String getMimeType(Resource resource)
+	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
 	{
-		if (resource instanceof Binary binary)
-			return binary.getContentType();
-		else
-			return "application/fhir+xml";
+		return provider.getById(fhirStoreId)
+				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
 	}
 }

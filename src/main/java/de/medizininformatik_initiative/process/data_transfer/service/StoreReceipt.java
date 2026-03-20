@@ -2,7 +2,6 @@ package de.medizininformatik_initiative.process.data_transfer.service;
 
 import java.util.Objects;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
@@ -12,31 +11,31 @@ import org.springframework.beans.factory.InitializingBean;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.variables.Variables;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.client.dsf.DelayStrategy;
+import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
+import dev.dsf.bpe.v2.variables.Variables;
 
-public class StoreReceipt extends AbstractServiceDelegate implements InitializingBean
+public class StoreReceipt implements ServiceTask, InitializingBean
 {
 	private static final Logger logger = LoggerFactory.getLogger(StoreReceipt.class);
 
 	private final DataSetStatusGenerator statusGenerator;
 
-	public StoreReceipt(ProcessPluginApi api, DataSetStatusGenerator statusGenerator)
+	public StoreReceipt(DataSetStatusGenerator statusGenerator)
 	{
-		super(api);
 		this.statusGenerator = statusGenerator;
 	}
 
 	@Override
 	public void afterPropertiesSet() throws Exception
 	{
-		super.afterPropertiesSet();
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
 	@Override
-	protected void doExecute(DelegateExecution execution, Variables variables)
+	public void execute(ProcessPluginApi api, Variables variables) throws ErrorBoundaryEvent, Exception
 	{
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -46,20 +45,21 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		Task currentTask = variables.getLatestTask();
 
 		if (!currentTask.getId().equals(startTask.getId()))
-			handleReceivedResponse(startTask, currentTask);
+			handleReceivedResponse(api, startTask, currentTask);
 		else if (Task.TaskStatus.INPROGRESS.equals(startTask.getStatus()))
-			handleMissingResponse(startTask, variables);
+			handleMissingResponse(api, startTask, variables);
 
-		writeStatusLogAndSendMail(startTask, projectIdentifier, dmsIdentifier);
+		writeStatusLogAndSendMail(api, startTask, projectIdentifier, dmsIdentifier);
 
 		variables.updateTask(startTask);
 		if (Task.TaskStatus.FAILED.equals(startTask.getStatus()))
-			updateTaskOnServer(startTask);
+			updateTaskOnServer(api, startTask);
 	}
 
-	private void handleReceivedResponse(Task startTask, Task currentTask)
+	private void handleReceivedResponse(ProcessPluginApi api, Task startTask, Task currentTask)
 	{
 		statusGenerator.transformInputToOutput(currentTask, startTask, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				api.getProcessPluginDefinition().getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS);
 
 		if (startTask.getOutput().stream().filter(Task.TaskOutputComponent::hasExtension)
@@ -68,28 +68,31 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 			startTask.setStatus(Task.TaskStatus.FAILED);
 	}
 
-	private void handleMissingResponse(Task startTask, Variables variables)
+	private void handleMissingResponse(ProcessPluginApi api, Task startTask, Variables variables)
 	{
 		// only add receipt-missing if data could be sent to DMS
 		if (variables.getVariable(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR) == null)
 		{
 			startTask.setStatus(Task.TaskStatus.FAILED);
-			startTask.addOutput(statusGenerator.createDataSetStatusOutput(
-					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
-					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+			startTask.addOutput(
+					statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
+							ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_MISSING,
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+							api.getProcessPluginDefinition().getResourceVersion(),
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 		}
 	}
 
-	private void writeStatusLogAndSendMail(Task startTask, String projectIdentifier, String dmsIdentifier)
+	private void writeStatusLogAndSendMail(ProcessPluginApi api, Task startTask, String projectIdentifier,
+			String dmsIdentifier)
 	{
 		startTask.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
 				.filter(o -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(((Coding) o.getValue()).getSystem()))
-				.forEach(o -> doWriteStatusLogAndSendMail(o, startTask, projectIdentifier, dmsIdentifier));
+				.forEach(o -> doWriteStatusLogAndSendMail(api, o, startTask, projectIdentifier, dmsIdentifier));
 	}
 
-	private void doWriteStatusLogAndSendMail(Task.TaskOutputComponent output, Task task, String projectIdentifier,
-			String dmsIdentifier)
+	private void doWriteStatusLogAndSendMail(ProcessPluginApi api, Task.TaskOutputComponent output, Task task,
+			String projectIdentifier, String dmsIdentifier)
 	{
 		Coding status = (Coding) output.getValue();
 		String code = status.getCode();
@@ -101,7 +104,7 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 			logger.info("Task with id '{}' for DMS '{}' and project-identifier '{}' has data-set status code '{}'",
 					task.getId(), dmsIdentifier, projectIdentifier, code);
 
-			sendSuccessfulMail(task, projectIdentifier, dmsIdentifier, code);
+			sendSuccessfulMail(api, task, projectIdentifier, dmsIdentifier, code);
 		}
 		else
 		{
@@ -110,11 +113,12 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 					"Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
 					dmsIdentifier, projectIdentifier, task.getId(), errorLog);
 
-			sendErrorMail(task, projectIdentifier, dmsIdentifier, code, error);
+			sendErrorMail(api, task, projectIdentifier, dmsIdentifier, code, error);
 		}
 	}
 
-	private void sendSuccessfulMail(Task task, String projectIdentifier, String dmsIdentifier, String code)
+	private void sendSuccessfulMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
+			String code)
 	{
 		String subject = "Data-set successfully delivered in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
@@ -126,7 +130,8 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		api.getMailService().send(subject, message);
 	}
 
-	private void sendErrorMail(Task task, String projectIdentifier, String dmsIdentifier, String code, String error)
+	private void sendErrorMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
+			String code, String error)
 	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "Could not download, decrypt, validate or insert data-set in process '"
@@ -137,10 +142,9 @@ public class StoreReceipt extends AbstractServiceDelegate implements Initializin
 		api.getMailService().send(subject, message);
 	}
 
-	private void updateTaskOnServer(Task startTask)
+	private void updateTaskOnServer(ProcessPluginApi api, Task startTask)
 	{
-		api.getFhirWebserviceClientProvider().getLocalWebserviceClient()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-				.update(startTask);
+		api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(startTask);
 	}
 }

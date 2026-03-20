@@ -4,14 +4,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import de.medizininformatik_initiative.process.data_transfer.spring.config.DicFhirClientConfig;
-import de.medizininformatik_initiative.process.data_transfer.spring.config.DmsFhirClientConfig;
 import de.medizininformatik_initiative.process.data_transfer.spring.config.TransferDataConfig;
-import dev.dsf.bpe.v1.ProcessPluginDefinition;
+import dev.dsf.bpe.v2.ProcessPluginDefinition;
 
 public class DataTransferProcessPluginDefinition implements ProcessPluginDefinition
 {
-	public static final String VERSION = "1.1.1.0";
+	public static final String VERSION = "2.0.0.0";
 	public static final LocalDate RELEASE_DATE = LocalDate.of(2025, 9, 26);
 
 	@Override
@@ -41,7 +39,7 @@ public class DataTransferProcessPluginDefinition implements ProcessPluginDefinit
 	@Override
 	public List<Class<?>> getSpringConfigurations()
 	{
-		return List.of(TransferDataConfig.class, DicFhirClientConfig.class, DmsFhirClientConfig.class);
+		return List.of(TransferDataConfig.class);
 	}
 
 	@Override

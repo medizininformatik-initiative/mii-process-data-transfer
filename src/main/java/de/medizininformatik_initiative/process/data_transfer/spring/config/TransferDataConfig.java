@@ -9,8 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
-import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
-import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentStateListener;
+import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDeploymentListener;
 import de.medizininformatik_initiative.process.data_transfer.authorization.AuthorizationProvider;
 import de.medizininformatik_initiative.process.data_transfer.message.SendData;
 import de.medizininformatik_initiative.process.data_transfer.message.SendReceipt;
@@ -26,13 +25,11 @@ import de.medizininformatik_initiative.process.data_transfer.service.StoreReceip
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProviderImpl;
-import de.medizininformatik_initiative.processes.common.mimetype.CombinedDetectors;
-import de.medizininformatik_initiative.processes.common.mimetype.MimeTypeHelper;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.ProcessPluginDeploymentStateListener;
-import dev.dsf.bpe.v1.documentation.ProcessDocumentation;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.ProcessPluginDeploymentListener;
+import dev.dsf.bpe.v2.documentation.ProcessDocumentation;
 
 @Configuration
 public class TransferDataConfig
@@ -40,11 +37,10 @@ public class TransferDataConfig
 	@Autowired
 	private ProcessPluginApi api;
 
-	@Autowired
-	private DicFhirClientConfig dicFhirClientConfig;
-
-	@Autowired
-	private DmsFhirClientConfig dmsFhirClientConfig;
+	@ProcessDocumentation(required = true, processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dic-fhir-store")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.id:#{null}}")
+	private String fhirStoreIdDic;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataSend" }, description = "To enable stream processing when reading Binary resources set to `true`")
@@ -55,6 +51,11 @@ public class TransferDataConfig
 			"medizininformatik-initiativede_dataSend" }, description = "If the DIC FHIR server is a HAPI FHIR server and uses external storage for Binary resources via the ENV variable `HAPI_FHIR_BINARY_STORAGE_ENABLED`, set this ENV variable as well to `true`")
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.use.hapi.blob.storage.operation:false}")
 	private boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
+
+	@ProcessDocumentation(required = true, processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dic-fhir-store")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.id:#{null}}")
+	private String fhirStoreIdDms;
 
 	@ProcessDocumentation(processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "To enable stream processing when writing Binary resources set to `true`")
@@ -85,23 +86,16 @@ public class TransferDataConfig
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public MimeTypeHelper mimeTypeHelper()
+	public KeyProvider keyProviderDic()
 	{
-		return new MimeTypeHelper(CombinedDetectors.fromDefaultWithNdJson(), api.getFhirContext());
+		return KeyProviderImpl.fromNothing(api);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public KeyProvider keyProviderDms()
 	{
-		return KeyProviderImpl.fromFiles(api, dmsPrivateKeyFile, dmsPublicKeyFile, dmsFhirClientConfig.dataLogger());
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-	public KeyProvider keyProviderDic()
-	{
-		return KeyProviderImpl.fromFiles(api, null, null, dicFhirClientConfig.dataLogger());
+		return KeyProviderImpl.fromFiles(api, dmsPrivateKeyFile, dmsPublicKeyFile);
 	}
 
 	@Bean
@@ -115,26 +109,22 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public MetadataResourceConverter metadataResourceConverter()
 	{
-		String resourcesVersion = new DataTransferProcessPluginDefinition().getResourceVersion();
-		return new MetadataResourceConverter(api, resourcesVersion);
+		return new MetadataResourceConverter(api);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public AuthorizationProvider authorizationProvider()
 	{
-		String resourcesVersion = new DataTransferProcessPluginDefinition().getResourceVersion();
-		return new AuthorizationProvider(api, resourcesVersion, additionallyAllowedSenders,
-				additionallyAllowedReceivers);
+		return new AuthorizationProvider(api, additionallyAllowedSenders, additionallyAllowedReceivers);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
-	public ProcessPluginDeploymentStateListener dataTransferProcessPluginDeploymentStateListener()
+	public ProcessPluginDeploymentListener dataTransferProcessPluginDeploymentListener()
 	{
-		return new DataTransferProcessPluginDeploymentStateListener(api, dicFhirClientConfig.fhirClientFactory(),
-				dmsFhirClientConfig.fhirClientFactory(), keyProviderDms(), metadataResourceConverter(),
-				authorizationProvider());
+		return new DataTransferProcessPluginDeploymentListener(api, fhirStoreIdDic, fhirStoreIdDms, keyProviderDms(),
+				metadataResourceConverter(), authorizationProvider());
 	}
 
 	// dataSend
@@ -143,52 +133,50 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ReadData readData()
 	{
-		return new ReadData(api, dicFhirClientConfig.fhirClientFactory(), fhirBinaryStreamReadEnabled,
-				dicFhirClientConfig.dataLogger());
+		return new ReadData(fhirStoreIdDic, fhirBinaryStreamReadEnabled);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ValidateDataDic validateDataDic()
 	{
-		return new ValidateDataDic(api, mimeTypeHelper(), dicFhirClientConfig.fhirClientFactory(),
-				fhirBinaryStreamReadUseHapiBlobStorageOperation);
+		return new ValidateDataDic(fhirStoreIdDic, fhirBinaryStreamReadUseHapiBlobStorageOperation);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public EncryptAndStoreData encryptAndStoreData()
 	{
-		return new EncryptAndStoreData(api, keyProviderDic(), dicFhirClientConfig.fhirClientFactory(),
-				dataSetStatusGenerator(), fhirBinaryStreamReadUseHapiBlobStorageOperation);
+		return new EncryptAndStoreData(fhirStoreIdDic, fhirBinaryStreamReadUseHapiBlobStorageOperation,
+				dataSetStatusGenerator(), keyProviderDic());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public SendData sendData()
 	{
-		return new SendData(api, dataSetStatusGenerator());
+		return new SendData();
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public HandleErrorSend handleErrorSend()
 	{
-		return new HandleErrorSend(api);
+		return new HandleErrorSend(dataSetStatusGenerator());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public StoreReceipt storeReceipt()
 	{
-		return new StoreReceipt(api, dataSetStatusGenerator());
+		return new StoreReceipt(dataSetStatusGenerator());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DeleteData deleteData()
 	{
-		return new DeleteData(api);
+		return new DeleteData();
 	}
 
 	// dataReceive
@@ -197,36 +185,34 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DownloadData downloadData()
 	{
-		return new DownloadData(api, dataSetStatusGenerator(), fhirBinaryStreamWriteEnabled,
-				dmsFhirClientConfig.dataLogger());
+		return new DownloadData(fhirStoreIdDms, fhirBinaryStreamWriteEnabled, dataSetStatusGenerator());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DecryptValidateAndInsertData decryptValidateAndInsertData()
 	{
-		return new DecryptValidateAndInsertData(api, keyProviderDms(), mimeTypeHelper(),
-				dmsFhirClientConfig.fhirClientFactory(), dataSetStatusGenerator());
+		return new DecryptValidateAndInsertData(fhirStoreIdDms, keyProviderDms(), dataSetStatusGenerator());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public HandleErrorReceive handleErrorReceive()
 	{
-		return new HandleErrorReceive(api);
+		return new HandleErrorReceive(dataSetStatusGenerator());
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public SelectTargetDic selectTargetDic()
 	{
-		return new SelectTargetDic(api);
+		return new SelectTargetDic();
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public SendReceipt sendReceipt()
 	{
-		return new SendReceipt(api, dataSetStatusGenerator());
+		return new SendReceipt(dataSetStatusGenerator());
 	}
 }

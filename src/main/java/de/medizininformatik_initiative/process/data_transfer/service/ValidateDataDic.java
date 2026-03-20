@@ -1,120 +1,111 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
 import java.io.BufferedInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.processes.common.fhir.client.FhirClientFactory;
-import de.medizininformatik_initiative.processes.common.mimetype.MimeTypeHelper;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.variables.Variables;
+import de.medizininformatik_initiative.process.data_transfer.variables.ProcessConfig;
+import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
+import de.medizininformatik_initiative.processes.common.util.MimeTypeHelper;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.client.dsf.DsfClient;
+import dev.dsf.bpe.v2.service.DsfClientProvider;
+import dev.dsf.bpe.v2.service.MimeTypeService;
+import dev.dsf.bpe.v2.variables.Variables;
+import jakarta.ws.rs.core.MediaType;
 
-public class ValidateDataDic extends AbstractServiceDelegate implements InitializingBean
+public class ValidateDataDic implements ServiceTask
 {
 	private static final Logger logger = LoggerFactory.getLogger(ValidateDataDic.class);
 
-	private final MimeTypeHelper mimeTypeHelper;
-	private final FhirClientFactory fhirClientFactory;
+	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 
-	public ValidateDataDic(ProcessPluginApi api, MimeTypeHelper mimeTypeHelper, FhirClientFactory fhirClientFactory,
-			boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
+	public ValidateDataDic(String fhirStoreId, boolean fhirBinaryStreamReadUseHapiBlobStorageOperation)
 	{
-		super(api);
-		this.mimeTypeHelper = mimeTypeHelper;
-		this.fhirClientFactory = fhirClientFactory;
+		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	}
 
 	@Override
-	public void afterPropertiesSet() throws Exception
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
-		super.afterPropertiesSet();
-		Objects.requireNonNull(mimeTypeHelper, "mimeTypeHelper");
-		Objects.requireNonNull(fhirClientFactory, "fhirClientFactory");
-	}
-
-	@Override
-	protected void doExecute(DelegateExecution execution, Variables variables)
-	{
-		Task task = variables.getStartTask();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 
-		logger.info("Validating data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-				dmsIdentifier, projectIdentifier, variables.getStartTask().getId());
+		DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
+
+		ProcessConfig processConfig = new ProcessConfig(Map.of("fhirStoreBaseUrl", client.getBaseUrl(),
+				"projectIdentifier", ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER + "|" + projectIdentifier,
+				"recipientDms", dmsIdentifier));
+
+		logger.info("Validating data-set {}", processConfig);
 
 		try
 		{
 			List<Resource> resources = variables
-					.getResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
-			resources.forEach(this::validate);
+					.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
+			resources.forEach(r -> validate(client, api.getFhirContext(), api.getMimeTypeService(), r));
 		}
 		catch (Exception exception)
 		{
-			logger.warn(
-					"Could not validate data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' - {}",
-					dmsIdentifier, projectIdentifier, task.getId(), exception.getMessage());
-
+			logger.warn("Validating data-set failed - {} {}", exception.getMessage(), processConfig);
 			throw new RuntimeException("Validating data-set failed - " + exception.getMessage(), exception);
 		}
 	}
 
-	private void validate(Resource resource)
+	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
+	{
+		return provider.getById(fhirStoreId)
+				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
+	}
+
+	private void validate(DsfClient client, FhirContext fhirContext, MimeTypeService mimeTypeService, Resource resource)
 	{
 		if (resource instanceof ListResource list)
-			validateStream(list);
+			validateStream(client, mimeTypeService, list);
 		else
-			validateResource(resource);
+			validateResource(fhirContext, mimeTypeService, resource);
 	}
 
-	private void validateResource(Resource resource)
+	private void validateResource(FhirContext fhirContext, MimeTypeService mimeTypeService, Resource resource)
 	{
-		String mimeType = mimeTypeHelper.getMimeType(resource);
-		byte[] data = mimeTypeHelper.getData(resource);
+		String mimeType = MimeTypeHelper.getMimeType(resource);
+		byte[] data = MimeTypeHelper.getData(fhirContext, resource);
 
-		mimeTypeHelper.validate(data, mimeType);
+		mimeTypeService.validateWithException(data, mimeType);
 	}
 
-	private void validateStream(ListResource list)
+	private void validateStream(DsfClient client, MimeTypeService mimeTypeService, ListResource list)
 	{
 		list.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
-				.forEach(this::doValidateStream);
+				.forEach(e -> doValidateStream(client, mimeTypeService, e));
 	}
 
-	private void doValidateStream(ListResource.ListEntryComponent listEntry)
+	private void doValidateStream(DsfClient client, MimeTypeService mimeTypeService,
+			ListResource.ListEntryComponent listEntry)
 	{
-		IdType url = (IdType) listEntry.getItem().getReferenceElement();
+		String binaryId = listEntry.getItem().getReferenceElement().getIdPart();
+		if (fhirBinaryStreamReadUseHapiBlobStorageOperation)
+			binaryId += "/$binary-access-read";
 		String mimetype = listEntry.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-		InputStream inputStream = fhirClientFactory.getBinaryStreamFhirClient().read(url, mimetype,
-				fhirBinaryStreamReadUseHapiBlobStorageOperation);
+		InputStream inputStream = client.readBinary(binaryId, MediaType.valueOf(mimetype));
 
 		if (!inputStream.markSupported())
 			inputStream = new BufferedInputStream(inputStream);
 
-		try
-		{
-			mimeTypeHelper.validate(inputStream, mimetype);
-		}
-		catch (IOException e)
-		{
-			throw new RuntimeException(e);
-		}
+		mimeTypeService.validateWithException(inputStream, mimetype);
 	}
 }

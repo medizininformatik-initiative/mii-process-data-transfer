@@ -99,7 +99,7 @@
   <bpmn:message id="Message_0mcjkpi" name="dataSendStart" />
   <bpmn:message id="Message_0j7x2tc" name="dataReceive" />
   <bpmn:message id="Message_0oqi2e7" name="dataStatus" />
-  <bpmn:error id="Error_03kz9w1" name="dataSendError" errorCode="dataSendError" />
+  <bpmn:error id="Error_03kz9w1" name="dataSendError" />
   <bpmn:error id="Error_0p5odmb" name="encryptAndStoreError" errorCode="createAndStoreError" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataSend">

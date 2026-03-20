@@ -1,65 +1,62 @@
 package de.medizininformatik_initiative.process.data_transfer.message;
 
+import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Type;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.activity.RetryTaskSender;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
-import dev.dsf.bpe.v1.variables.Variables;
-import dev.dsf.fhir.client.FhirWebserviceClient;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.MessageEndEvent;
+import dev.dsf.bpe.v2.activity.task.TaskSender;
+import dev.dsf.bpe.v2.activity.values.SendTaskValues;
+import dev.dsf.bpe.v2.variables.Target;
+import dev.dsf.bpe.v2.variables.Variables;
 
-public class SendReceipt extends AbstractTaskMessageSend implements InitializingBean
+public class SendReceipt implements MessageEndEvent, InitializingBean
 {
 	private final DataSetStatusGenerator statusGenerator;
 
-	public SendReceipt(ProcessPluginApi api, DataSetStatusGenerator statusGenerator)
+	public SendReceipt(DataSetStatusGenerator statusGenerator)
 	{
-		super(api);
 		this.statusGenerator = statusGenerator;
 	}
 
 	@Override
 	public void afterPropertiesSet() throws Exception
 	{
-		super.afterPropertiesSet();
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
 	@Override
-	protected Stream<Task.ParameterComponent> getAdditionalInputParameters(DelegateExecution execution,
-			Variables variables)
+	public List<Task.ParameterComponent> getAdditionalInputParameters(ProcessPluginApi api, Variables variables,
+			SendTaskValues sendTaskValues, Target target)
 	{
 		if (variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR) != null)
-			return createReceiptError(variables);
+			return createReceiptError(api, variables);
 		else
 			return createReceiptOk();
 	}
 
 	@Override
-	protected IdType doSend(FhirWebserviceClient client, Task task)
+	public TaskSender getTaskSender(ProcessPluginApi api, Variables variables, SendTaskValues sendTaskValues)
 	{
-		return client.withMinimalReturn()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-				.create(task);
+		return new RetryTaskSender(api, variables, sendTaskValues, getBusinessKeyStrategy(),
+				(target) -> getAdditionalInputParameters(api, variables, sendTaskValues, target));
 	}
 
-	private Stream<Task.ParameterComponent> createReceiptError(Variables variables)
+	private List<Task.ParameterComponent> createReceiptError(ProcessPluginApi api, Variables variables)
 	{
-		return statusGenerator
-				.transformOutputToInputComponent(variables.getStartTask(),
-						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS)
-				.map(this::receiveToReceiptStatus);
+		return statusGenerator.transformOutputToInputComponent(variables.getStartTask(),
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, api.getProcessPluginDefinition().getResourceVersion(),
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS).map(this::receiveToReceiptStatus)
+				.toList();
 	}
 
 	private Task.ParameterComponent receiveToReceiptStatus(Task.ParameterComponent parameterComponent)
@@ -74,7 +71,7 @@ public class SendReceipt extends AbstractTaskMessageSend implements Initializing
 		return parameterComponent;
 	}
 
-	private Stream<Task.ParameterComponent> createReceiptOk()
+	private List<Task.ParameterComponent> createReceiptOk()
 	{
 		Task.ParameterComponent parameterComponent = new Task.ParameterComponent();
 		parameterComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
@@ -82,6 +79,6 @@ public class SendReceipt extends AbstractTaskMessageSend implements Initializing
 		parameterComponent.setValue(new Coding().setSystem(ConstantsBase.CODESYSTEM_DATA_SET_STATUS)
 				.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK));
 
-		return Stream.of(parameterComponent);
+		return List.of(parameterComponent);
 	}
 }
