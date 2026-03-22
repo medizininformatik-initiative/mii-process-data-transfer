@@ -54,14 +54,16 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	private final DataSetStatusGenerator statusGenerator;
 	private final KeyProvider keyProvider;
+	private final boolean dicEmailEnabled;
 
 	public EncryptAndStoreData(String fhirStoreId, boolean fhirBinaryStreamReadUseHapiBlobStorageOperation,
-			DataSetStatusGenerator statusGenerator, KeyProvider keyProvider)
+			DataSetStatusGenerator statusGenerator, KeyProvider keyProvider, boolean dicEmailEnabled)
 	{
 		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 		this.statusGenerator = statusGenerator;
 		this.keyProvider = keyProvider;
+		this.dicEmailEnabled = dicEmailEnabled;
 	}
 
 	@Override
@@ -84,17 +86,14 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		List<Resource> resources = variables
 				.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
 
-		logger.info(
-				"Encrypting and storing data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-				dmsIdentifier, projectIdentifier, task.getId());
+		logger.info("Encrypting and storing data-set for DMS '{}' and project-identifier '{}' referenced in Task '{}'",
+				dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		ListResource transferBinaryReferenceList = new ListResource();
+		PublicKey publicKey = readPublicKey(api, consortiumIdentifier, dmsIdentifier, projectIdentifier, task);
 
 		try
 		{
-			PublicKey publicKey = readPublicKey(api, consortiumIdentifier, dmsIdentifier, projectIdentifier,
-					task.getId());
-
 			DocumentReference transferDocumentReference = createAndStoreDocumentReference(api, projectIdentifier,
 					initialDocumentReference, dmsIdentifier);
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
@@ -110,10 +109,12 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
 					getDsfFhirServerAbsoluteId(api, transferDocumentReference.getIdElement()));
 
-			logger.info(
-					"Stored DocumentReference with id '{}' provided for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-					transferDocumentReference.getId(), dmsIdentifier, projectIdentifier, task.getId());
-			sendMail(api, task, projectIdentifier, dmsIdentifier, transferDocumentReference.getIdElement());
+			logger.info("Stored DocumentReference '{}' for DMS '{}' and project-identifier '{}' in Task '{}'",
+					transferDocumentReference.getId(), dmsIdentifier, projectIdentifier,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+			if (dicEmailEnabled)
+				sendMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier,
+						transferDocumentReference.getIdElement());
 
 			Target target = createTarget(api, variables, consortiumIdentifier, dmsIdentifier);
 			variables.setTarget(target);
@@ -123,31 +124,31 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 			variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES,
 					transferBinaryReferenceList);
 
-			String error = "Encrypting and storing data-set failed - " + exception.getMessage();
-			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_SENT, error);
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_SENT,
+					"Encrypting and storing data-set failed - " + exception.getMessage());
 		}
 	}
 
 	private PublicKey readPublicKey(ProcessPluginApi api, String consortiumIdentifier, String dmsIdentifier,
-			String projectIdentifier, String taskId)
+			String projectIdentifier, Task task)
 	{
 		String url = getEndpointUrl(api, consortiumIdentifier, dmsIdentifier);
 		Optional<Bundle> publicKeyBundleOptional = keyProvider.readPublicKeyIfExists(url);
 
 		if (publicKeyBundleOptional.isEmpty())
-			throw new IllegalStateException("Could not find PublicKey Bundle of DMS organization");
+			throw new IllegalStateException("Could not find PublicKey Bundle of DMS '" + dmsIdentifier + "'");
 
-		logger.debug(
-				"Downloaded PublicKey Bundle for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'",
-				dmsIdentifier, projectIdentifier, taskId);
+		String taskReference = api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task);
+		logger.debug("Downloaded PublicKey Bundle for DMS '{}' and project-identifier '{}' in Task '{}'", dmsIdentifier,
+				projectIdentifier, taskReference);
 
 		Bundle publicKeyBundle = publicKeyBundleOptional.get();
 		DocumentReference documentReference = getDocumentReference(publicKeyBundle, dmsIdentifier, projectIdentifier,
-				taskId);
-		Binary binary = getBinary(publicKeyBundle, dmsIdentifier, projectIdentifier, taskId);
+				taskReference);
+		Binary binary = getBinary(publicKeyBundle, dmsIdentifier, projectIdentifier, taskReference);
 
 		PublicKey publicKey = getPublicKey(binary);
-		checkHash(documentReference, publicKey, dmsIdentifier, projectIdentifier, taskId);
+		checkHash(documentReference, publicKey, dmsIdentifier, projectIdentifier, taskReference);
 
 		return publicKey;
 	}
@@ -158,7 +159,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	}
 
 	private DocumentReference getDocumentReference(Bundle bundle, String dmsIdentifier, String projectIdentifier,
-			String taskId)
+			String taskReference)
 	{
 		List<DocumentReference> documentReferences = bundle.getEntry().stream()
 				.map(Bundle.BundleEntryComponent::getResource).filter(r -> r instanceof DocumentReference)
@@ -169,13 +170,13 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 
 		if (documentReferences.size() > 1)
 			logger.warn(
-					"Found {} DocumentReferences in PublicKey Bundle provided by DMS '{}' and project-identifier '{}' referenced in Task with id '{}', using the first",
-					documentReferences.size(), dmsIdentifier, projectIdentifier, taskId);
+					"Found {} DocumentReferences in PublicKey Bundle of DMS '{}' and project-identifier '{}' in Task '{}', using the first",
+					documentReferences.size(), dmsIdentifier, projectIdentifier, taskReference);
 
 		return documentReferences.getFirst();
 	}
 
-	private Binary getBinary(Bundle bundle, String dmsIdentifier, String projectIdentifier, String taskId)
+	private Binary getBinary(Bundle bundle, String dmsIdentifier, String projectIdentifier, String taskReference)
 	{
 		List<Binary> binaries = bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)
 				.filter(r -> r instanceof Binary).map(b -> (Binary) b).toList();
@@ -185,8 +186,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 
 		if (binaries.size() > 1)
 			logger.warn(
-					"Found {} Binaries in PublicKey Bundle of DMS '{}' and project-identifier '{}' referenced in Task with id '{}', using the first",
-					binaries.size(), dmsIdentifier, projectIdentifier, taskId);
+					"Found {} Binaries in PublicKey Bundle of DMS '{}' and project-identifier '{}' in Task '{}', using the first",
+					binaries.size(), dmsIdentifier, projectIdentifier, taskReference);
 
 		return binaries.getFirst();
 	}
@@ -195,7 +196,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	{
 		try
 		{
-			return KeyProvider.fromBytes(binary.getContent());
+			return KeyProvider.from(binary.getContent());
 		}
 		catch (Exception exception)
 		{
@@ -206,7 +207,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	}
 
 	private void checkHash(DocumentReference documentReference, PublicKey publicKey, String dmsIdentifier,
-			String projectIdentifier, String taskId)
+			String projectIdentifier, String taskReference)
 	{
 		long numberOfHashes = documentReference.getContent().stream()
 				.filter(DocumentReference.DocumentReferenceContentComponent::hasAttachment)
@@ -218,8 +219,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 
 		if (numberOfHashes > 1)
 			logger.warn(
-					"DocumentReference of PublicKey Bundle contains {} sha256-hashes of DMS '{}' and project-identifier '{}' referenced in Task with id '{}', using the first",
-					numberOfHashes, dmsIdentifier, projectIdentifier, taskId);
+					"DocumentReference of PublicKey Bundle contains {} sha256-hashes of DMS '{}' and project-identifier '{}' in Task '{}', using the first",
+					numberOfHashes, dmsIdentifier, projectIdentifier, taskReference);
 
 		byte[] documentReferenceHash = documentReference.getContentFirstRep().getAttachment().getHash();
 		byte[] publicKeyHash = DigestUtils.sha256(publicKey.getEncoded());
@@ -243,7 +244,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 				.setValue(projectIdentifier);
 		documentReference.addAuthor().setType(ResourceType.Organization.name())
 				.setIdentifier(api.getOrganizationProvider().getLocalOrganizationIdentifier()
-						.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifier is null")));
+						.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifier missing")));
 		documentReference.setDate(initialDocumentReference.getDate());
 
 		// DocumentReference.attachment has cardinality 1..*, so a dummy attachment has to be created in order
@@ -366,7 +367,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not store binary - " + exception.getMessage(), exception);
+			throw new RuntimeException("Could not store Binary - " + exception.getMessage(), exception);
 		}
 	}
 
@@ -390,15 +391,15 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 				.getEndpoint(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier),
 						NamingSystems.OrganizationIdentifier.withValue(organizationIdentifier),
 						CodeSystems.OrganizationRole.dms())
-				.orElseThrow(() -> new RuntimeException("Could not find Endpoint of organization with identifier '"
-						+ organizationIdentifier + "' in  consortium '" + consortiumIdentifier + "'"));
+				.orElseThrow(() -> new RuntimeException("Could not find Endpoint of organization '"
+						+ consortiumIdentifier + "|" + organizationIdentifier + "'"));
 	}
 
 	private String getEndpointIdentifierValue(Endpoint endpoint)
 	{
 		return endpoint.getIdentifier().stream().filter(i -> NamingSystems.EndpointIdentifier.SID.equals(i.getSystem()))
 				.findFirst().map(Identifier::getValue).orElseThrow(() -> new RuntimeException(
-						"Endpoint with id '" + endpoint.getId() + "' does not contain any identifier"));
+						"Endpoint '" + endpoint.getId() + "' does not contain any identifier"));
 	}
 
 	private void createAndSaveListEntryComponent(ProcessPluginApi api, ListResource transferBinaryReferenceList,
@@ -413,28 +414,29 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 				transferBinaryReferenceList);
 	}
 
-	private String getDsfFhirServerAbsoluteId(ProcessPluginApi api, IdType idType)
-	{
-		return new IdType(api.getDsfClientProvider().getLocal().getBaseUrl(), idType.getResourceType(),
-				idType.getIdPart(), idType.getVersionIdPart()).getValue();
-	}
-
-	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
-			IdType documentReferenceIdType)
+	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String consortiumIdentifier,
+			String dmsIdentifier, IdType documentReferenceIdType)
 	{
 		String subject = "Data-set provided in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "A data-set has been successfully provided in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task with id '" + task.getId()
-				+ "' for DMS '" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task '"
+				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' for DMS '" + consortiumIdentifier + "|"
+				+ dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
 				+ "' and can be accessed using the following url:\n" + "- "
 				+ getDsfFhirServerAbsoluteId(api, documentReferenceIdType);
 
 		api.getMailService().send(subject, message);
 	}
 
+	private String getDsfFhirServerAbsoluteId(ProcessPluginApi api, IdType idType)
+	{
+		return new IdType(api.getDsfClientProvider().getLocal().getBaseUrl(), idType.getResourceType(),
+				idType.getIdPart(), idType.getVersionIdPart()).getValue();
+	}
+
 	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
 	{
 		return provider.getById(fhirStoreId)
-				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
+				.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreId + "' not configured"));
 	}
 }

@@ -24,7 +24,6 @@ import de.medizininformatik_initiative.process.data_transfer.service.SelectTarge
 import de.medizininformatik_initiative.process.data_transfer.service.StoreReceipt;
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
-import de.medizininformatik_initiative.processes.common.crypto.KeyProviderImpl;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
 import dev.dsf.bpe.v2.ProcessPluginApi;
@@ -52,6 +51,11 @@ public class TransferDataConfig
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.fhir.server.binary.stream.read.use.hapi.blob.storage.operation:false}")
 	private boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "To receive e-mails as DIC, set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.email.enabled:false}")
+	private boolean dicEmailEnabled;
+
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dic-fhir-store")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.id:#{null}}")
@@ -61,6 +65,11 @@ public class TransferDataConfig
 			"medizininformatik-initiativede_dataReceive" }, description = "To enable stream processing when writing Binary resources set to `true`")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.binary.stream.write.enabled:false}")
 	private boolean fhirBinaryStreamWriteEnabled;
+
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataReceive" }, description = "To receive e-mails as DMS, set to `true`")
+	@Value("${de.medizininformatik.initiative.data.transfer.dms.email.enabled:false}")
+	private boolean dmsEmailEnabled;
 
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS private-key as 4096 Bit RSA PEM encoded, not encrypted file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_private_key.pem")
@@ -88,14 +97,14 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public KeyProvider keyProviderDic()
 	{
-		return KeyProviderImpl.fromNothing(api);
+		return KeyProvider.from(api);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public KeyProvider keyProviderDms()
 	{
-		return KeyProviderImpl.fromFiles(api, dmsPrivateKeyFile, dmsPublicKeyFile);
+		return KeyProvider.from(api, dmsPrivateKeyFile, dmsPublicKeyFile);
 	}
 
 	@Bean
@@ -148,7 +157,7 @@ public class TransferDataConfig
 	public EncryptAndStoreData encryptAndStoreData()
 	{
 		return new EncryptAndStoreData(fhirStoreIdDic, fhirBinaryStreamReadUseHapiBlobStorageOperation,
-				dataSetStatusGenerator(), keyProviderDic());
+				dataSetStatusGenerator(), keyProviderDic(), dicEmailEnabled);
 	}
 
 	@Bean
@@ -162,14 +171,14 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public HandleErrorSend handleErrorSend()
 	{
-		return new HandleErrorSend(dataSetStatusGenerator());
+		return new HandleErrorSend(dataSetStatusGenerator(), dicEmailEnabled);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public StoreReceipt storeReceipt()
 	{
-		return new StoreReceipt(dataSetStatusGenerator());
+		return new StoreReceipt(dataSetStatusGenerator(), dicEmailEnabled);
 	}
 
 	@Bean
@@ -185,7 +194,7 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DownloadData downloadData()
 	{
-		return new DownloadData(fhirStoreIdDms, fhirBinaryStreamWriteEnabled, dataSetStatusGenerator());
+		return new DownloadData(fhirBinaryStreamWriteEnabled, dataSetStatusGenerator());
 	}
 
 	@Bean
@@ -199,7 +208,7 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public HandleErrorReceive handleErrorReceive()
 	{
-		return new HandleErrorReceive(dataSetStatusGenerator());
+		return new HandleErrorReceive(dataSetStatusGenerator(), dmsEmailEnabled);
 	}
 
 	@Bean
@@ -213,6 +222,6 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public SendReceipt sendReceipt()
 	{
-		return new SendReceipt(dataSetStatusGenerator());
+		return new SendReceipt(api, dataSetStatusGenerator());
 	}
 }

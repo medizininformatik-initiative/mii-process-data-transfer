@@ -34,14 +34,11 @@ public class DownloadData implements ServiceTask, InitializingBean
 {
 	private static final Logger logger = LoggerFactory.getLogger(DownloadData.class);
 
-	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamWriteEnabled;
 	private final DataSetStatusGenerator statusGenerator;
 
-	public DownloadData(String fhirStoreId, boolean fhirBinaryStreamWriteEnabled,
-			DataSetStatusGenerator statusGenerator)
+	public DownloadData(boolean fhirBinaryStreamWriteEnabled, DataSetStatusGenerator statusGenerator)
 	{
-		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamWriteEnabled = fhirBinaryStreamWriteEnabled;
 		this.statusGenerator = statusGenerator;
 	}
@@ -53,7 +50,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 	}
 
 	@Override
-	public void execute(ProcessPluginApi api, Variables variables) throws ErrorBoundaryEvent, Exception
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
 		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
@@ -70,16 +67,16 @@ public class DownloadData implements ServiceTask, InitializingBean
 				documentReferenceLocation.getValue());
 
 		logger.info(
-				"Downloading data-set from organization '{}' for project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments)",
-				sendingOrganization, projectIdentifier, task.getId(), documentReferenceLocation.getValue());
+				"Downloading data-set from organization '{}' for project-identifier '{}' in Task '{}' (DocumentReference '{}' and its encrypted attachments)",
+				sendingOrganization, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task),
+				documentReferenceLocation.getValue());
 
 		try
 		{
 			DocumentReference documentReference = readDocumentReference(api, documentReferenceLocation,
-					sendingOrganization, projectIdentifier, task.getId());
+					sendingOrganization, projectIdentifier, task);
 			Stream<DataResource> attachments = readAttachments(api, documentReference);
-			List<Resource> resources = getResources(api, attachments, sendingOrganization, projectIdentifier,
-					task.getId());
+			List<Resource> resources = getResources(attachments);
 
 			variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 			variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE,
@@ -89,8 +86,17 @@ public class DownloadData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			String error = "Download data-set failed - " + exception.getMessage();
-			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, error);
+			task.setStatus(Task.TaskStatus.FAILED);
+			task.addOutput(statusGenerator.createDataSetStatusOutput(
+					api.getProcessPluginDefinition().getResourceVersion(),
+					ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+					api.getProcessPluginDefinition().getResourceVersion(),
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Download data-set failed"));
+			variables.updateTask(task);
+
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					"Download data-set failed - " + exception.getMessage());
 		}
 	}
 
@@ -102,7 +108,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 				.filter(i -> i.getValue() instanceof Identifier).map(i -> (Identifier) i.getValue())
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
 				.map(Identifier::getValue).findFirst()
-				.orElseThrow(() -> new RuntimeException("No project-identifier present in Task.input"));
+				.orElseThrow(() -> new RuntimeException("Task.input:project-identifier missing"));
 	}
 
 	private String getConsortiumIdentifier(ProcessPluginApi api, Task task)
@@ -110,7 +116,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 		return api.getTaskHelper()
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
-				.orElseThrow(() -> new IllegalArgumentException("No consortium identifier present in Task.input"))
+				.orElseThrow(() -> new IllegalArgumentException("Task.input:consortium-identifier missing"))
 				.getIdentifier().getValue();
 	}
 
@@ -125,18 +131,19 @@ public class DownloadData implements ServiceTask, InitializingBean
 				.filter(Reference::hasReference).map(Reference::getReference).toList();
 
 		if (dataSetReferences.isEmpty())
-			throw new IllegalArgumentException("No DocumentReference reference present in Task.input");
+			throw new IllegalArgumentException("Task.input:document-reference-location missing");
 
 		if (dataSetReferences.size() > 1)
 			logger.warn(
-					"Found {} DocumentReference references from organization '{}' for project-identifier '{}' referenced in Task with id '{}', using only the first",
-					dataSetReferences.size(), sendingOrganization, projectIdentifier, task.getId());
+					"Found {} DocumentReference locations from organization '{}' and project-identifier '{}' in Task '{}', using only the first",
+					dataSetReferences.size(), sendingOrganization, projectIdentifier,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		return new IdType(dataSetReferences.getFirst());
 	}
 
 	private DocumentReference readDocumentReference(ProcessPluginApi api, IdType documentReferenceLocation,
-			String sendingOrganization, String projectIdentifier, String taskId)
+			String sendingOrganization, String projectIdentifier, Task task)
 	{
 		DocumentReference documentReference = api.getDsfClientProvider()
 				.getByEndpointUrl(documentReferenceLocation.getBaseUrl())
@@ -145,9 +152,10 @@ public class DownloadData implements ServiceTask, InitializingBean
 				.read(DocumentReference.class, documentReferenceLocation.getIdPart(),
 						documentReferenceLocation.getVersionIdPart());
 
-		api.getDataLogger().log("DocumentReference from organization '" + sendingOrganization
-				+ "' for project-identifier '" + projectIdentifier + "' referenced in Task with id '" + taskId + "'",
-				documentReference);
+		api.getDataLogger()
+				.log("DocumentReference with project-identifier '" + projectIdentifier + "from organization '"
+						+ sendingOrganization + "' and Task '"
+						+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "'", documentReference);
 
 		return documentReference;
 	}
@@ -204,14 +212,9 @@ public class DownloadData implements ServiceTask, InitializingBean
 			return client.readBinary(id, mediaType);
 	}
 
-	private List<Resource> getResources(ProcessPluginApi api, Stream<DataResource> dataResources,
-			String sendingOrganization, String projectIdentifier, String taskId)
+	private List<Resource> getResources(Stream<DataResource> dataResources)
 	{
-		return dataResources.map(DataResource::toResource).filter(Objects::nonNull)
-				.peek(r -> api.getDataLogger()
-						.log("Read attachment from organization '" + sendingOrganization + "' for project-identifier '"
-								+ projectIdentifier + "' referenced in Task with id '" + taskId + "'", r))
-				.toList();
+		return dataResources.map(DataResource::toResource).filter(Objects::nonNull).toList();
 	}
 
 	private boolean isMimetypeFhir(String mimetype)

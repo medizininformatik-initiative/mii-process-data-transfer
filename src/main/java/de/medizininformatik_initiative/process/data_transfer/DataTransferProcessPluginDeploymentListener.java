@@ -53,11 +53,11 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 		{
 			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataSend();
 
-			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDic).orElseThrow(
-					() -> new RuntimeException("DSF FHIR Client with ID '" + fhirStoreIdDic + "' not configured"))
+			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDic)
+					.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreIdDic + "' not configured"))
 					.getConformance();
 
-			Objects.requireNonNull(conformance, "Connection test for DSF FHIR Client with ID '" + fhirStoreIdDic
+			Objects.requireNonNull(conformance, "Connection test for DSF FHIR client '" + fhirStoreIdDic
 					+ "' failed - CapabilityStatement is null");
 		}
 
@@ -65,11 +65,11 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 		{
 			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataReceive();
 
-			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDms).orElseThrow(
-					() -> new RuntimeException("DSF FHIR Client with ID '" + fhirStoreIdDms + "' not configured"))
+			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDms)
+					.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreIdDms + "' not configured"))
 					.getConformance();
 
-			Objects.requireNonNull(conformance, "Connection test for DSF FHIR Client with ID '" + fhirStoreIdDms
+			Objects.requireNonNull(conformance, "Connection test for DSF FHIR client '" + fhirStoreIdDms
 					+ "' failed - CapabilityStatement is null");
 
 			Objects.requireNonNull(keyProvider.getPublicKey(), "PublicKey");

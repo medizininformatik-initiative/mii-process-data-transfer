@@ -78,8 +78,9 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
 		logger.info(
-				"Decrypting, validating and inserting data-set from organization '{}' with project-identifier '{}' referenced in Task with id '{}'",
-				sendingOrganizationIdentifier, projectIdentifier, task.getId());
+				"Decrypting, validating and inserting data-set from organization '{}' and project-identifier '{}' in Task '{}'",
+				sendingOrganizationIdentifier, projectIdentifier,
+				api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		try
 		{
@@ -88,22 +89,25 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 			IdType documentReferenceId = createOrUpdateDocumentReference(api, sendingOrganizationIdentifier,
 					projectIdentifier, resourceReferencesList, task).toUnqualified();
 
-			logger.info(
-					"Stored data-set in DocumentReference with id '{}' on FHIR store with baseUrl '{}' from organization '{}' with project-identifier '{}' referenced in Task with id '{}'",
-					documentReferenceId, getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId).getBaseUrl(),
-					sendingOrganizationIdentifier, projectIdentifier, task.getId());
+			logger.info("Stored DocumentReference '{}' from organization '{}' and project-identifier '{}' in Task '{}'",
+					documentReferenceId, sendingOrganizationIdentifier, projectIdentifier,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 		}
 		catch (Exception exception)
 		{
-			String error = "Decrypt, validate or insert data-set failed - " + exception.getMessage();
-			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, error);
-		}
-	}
+			task.setStatus(Task.TaskStatus.FAILED);
+			task.addOutput(
+					statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
+							ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+							api.getProcessPluginDefinition().getResourceVersion(),
+							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS,
+							"Decrypt, validate or insert data-set failed"));
+			variables.updateTask(task);
 
-	private String getLocalOrganizationIdentifier(ProcessPluginApi api)
-	{
-		return api.getOrganizationProvider().getLocalOrganizationIdentifierValue()
-				.orElseThrow(() -> new RuntimeException("LocalOrganizationIdentifierValue is null"));
+			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
+					"Decrypt, validate or insert data-set failed - " + exception.getMessage());
+		}
 	}
 
 	private String getSendingOrganizationIdentifier(Variables variables)
@@ -276,33 +280,36 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 			String projectIdentifier, ListResource resourceReferencesList, Task task)
 	{
 		List<DocumentReference> existingDocumentReferences = searchExistingDocumentReferences(api, sendingOrganization,
-				projectIdentifier, task.getId());
+				projectIdentifier, task);
 
 		if (existingDocumentReferences.isEmpty())
 		{
 			logger.info(
-					"DocumentReference for project-identifier '{}' authored by '{}' does not exist yet, creating a new one on FHIR server with id '{}' referenced in Task with id '{}'",
-					projectIdentifier, sendingOrganization, fhirStoreId, task.getId());
+					"DocumentReference of organization {} and project-identifier '{}' does not exist yet, creating a new one on FHIR server '{}' in Task '{}'",
+					sendingOrganization, projectIdentifier, fhirStoreId,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 			return createDocumentReference(api, sendingOrganization, projectIdentifier, resourceReferencesList);
 		}
 		else
 		{
 			if (existingDocumentReferences.size() > 1)
 				logger.warn(
-						"Found more than one DocumentReference for project-identifier '{}' authored by '{}' on FHIR server with id '{}' referenced in Task with id '{}', using the first '{}'",
-						projectIdentifier, sendingOrganization, fhirStoreId, existingDocumentReferences.get(0).getId(),
-						task.getId());
+						"Found more than one DocumentReference of organization '{}' for project-identifier '{}' on FHIR server '{}' in Task '{}', using the first '{}'",
+						sendingOrganization, projectIdentifier, fhirStoreId,
+						existingDocumentReferences.getFirst().getId(),
+						api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 			logger.info(
-					"DocumentReference for project-identifier '{}' authored by '{}' already exists, updating data-set on FHIR server with id '{}' referenced in Task with id '{}'",
-					projectIdentifier, sendingOrganization, fhirStoreId, task.getId());
+					"DocumentReference of organization '{}' and project-identifier '{}' already exists, updating data-set on FHIR server '{}' in Task '{}'",
+					sendingOrganization, projectIdentifier, fhirStoreId,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 			return updateDocumentReference(api, existingDocumentReferences.getFirst(), resourceReferencesList);
 		}
 	}
 
 	private List<DocumentReference> searchExistingDocumentReferences(ProcessPluginApi api, String sendingOrganization,
-			String projectIdentifier, String taskId)
+			String projectIdentifier, Task task)
 	{
 		// workaround since not all fhir server used in MII support DocumentReference.author:identifier or
 		// DocumentReference.author:Organization.identifier search parameters. Therefore, filtering for author
@@ -334,8 +341,9 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		catch (Exception exception)
 		{
 			logger.warn(
-					"Error while searching for existing DocumentReferences for project-identifier '{}' authored by '{}' on FHIR server with id '{}' in Task with id '{}'- {}",
-					projectIdentifier, sendingOrganization, fhirStoreId, taskId, exception.getMessage());
+					"Error while searching DocumentReferences of organization '{}' for project-identifier '{}' on FHIR server '{}' in Task '{}'- {}",
+					sendingOrganization, projectIdentifier, fhirStoreId,
+					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task), exception.getMessage());
 			return List.of();
 		}
 	}
@@ -405,12 +413,12 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
 	{
 		return provider.getById(fhirStoreId)
-				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
+				.orElseThrow(() -> new RuntimeException("DSF client '" + fhirStoreId + "' not configured"));
 	}
 
 	private IGenericClient getFhirClientForFhirStore(FhirClientProvider provider, String fhirStoreId)
 	{
 		return provider.getById(fhirStoreId)
-				.orElseThrow(() -> new RuntimeException("FHIR client config with id '" + fhirStoreId + "' not found"));
+				.orElseThrow(() -> new RuntimeException("FHIR client '" + fhirStoreId + "' not configured"));
 	}
 }

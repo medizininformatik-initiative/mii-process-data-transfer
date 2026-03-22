@@ -13,8 +13,6 @@ import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.activity.ServiceTask;
-import dev.dsf.bpe.v2.client.dsf.DelayStrategy;
-import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
 import dev.dsf.bpe.v2.variables.Variables;
 
 public class StoreReceipt implements ServiceTask, InitializingBean
@@ -22,10 +20,12 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 	private static final Logger logger = LoggerFactory.getLogger(StoreReceipt.class);
 
 	private final DataSetStatusGenerator statusGenerator;
+	private final boolean dicEmailEnabled;
 
-	public StoreReceipt(DataSetStatusGenerator statusGenerator)
+	public StoreReceipt(DataSetStatusGenerator statusGenerator, boolean dicEmailEnabled)
 	{
 		this.statusGenerator = statusGenerator;
+		this.dicEmailEnabled = dicEmailEnabled;
 	}
 
 	@Override
@@ -35,10 +35,12 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 	}
 
 	@Override
-	public void execute(ProcessPluginApi api, Variables variables) throws ErrorBoundaryEvent, Exception
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 
 		Task startTask = variables.getStartTask();
@@ -49,11 +51,10 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 		else if (Task.TaskStatus.INPROGRESS.equals(startTask.getStatus()))
 			handleMissingResponse(api, startTask, variables);
 
-		writeStatusLogAndSendMail(api, startTask, projectIdentifier, dmsIdentifier);
+		writeStatusLogAndSendMail(api, startTask, projectIdentifier, consortiumIdentifier, dmsIdentifier,
+				dicEmailEnabled);
 
 		variables.updateTask(startTask);
-		if (Task.TaskStatus.FAILED.equals(startTask.getStatus()))
-			updateTaskOnServer(api, startTask);
 	}
 
 	private void handleReceivedResponse(ProcessPluginApi api, Task startTask, Task currentTask)
@@ -84,15 +85,16 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 	}
 
 	private void writeStatusLogAndSendMail(ProcessPluginApi api, Task startTask, String projectIdentifier,
-			String dmsIdentifier)
+			String consortiumIdentifier, String dmsIdentifier, boolean dicEmailEnabled)
 	{
 		startTask.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
 				.filter(o -> ConstantsBase.CODESYSTEM_DATA_SET_STATUS.equals(((Coding) o.getValue()).getSystem()))
-				.forEach(o -> doWriteStatusLogAndSendMail(api, o, startTask, projectIdentifier, dmsIdentifier));
+				.forEach(o -> doWriteStatusLogAndSendMail(api, o, startTask, projectIdentifier, consortiumIdentifier,
+						dmsIdentifier, dicEmailEnabled));
 	}
 
 	private void doWriteStatusLogAndSendMail(ProcessPluginApi api, Task.TaskOutputComponent output, Task task,
-			String projectIdentifier, String dmsIdentifier)
+			String projectIdentifier, String consortiumIdentifier, String dmsIdentifier, boolean dicEmailEnabled)
 	{
 		Coding status = (Coding) output.getValue();
 		String code = status.getCode();
@@ -101,50 +103,47 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 
 		if (ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK.equals(code))
 		{
-			logger.info("Task with id '{}' for DMS '{}' and project-identifier '{}' has data-set status code '{}'",
-					task.getId(), dmsIdentifier, projectIdentifier, code);
-
-			sendSuccessfulMail(api, task, projectIdentifier, dmsIdentifier, code);
+			logger.info(
+					"Delivering encrypted data-set for DMS '{}' and project-identifier '{}' has status code '{}' in Task '{}'",
+					dmsIdentifier, projectIdentifier, code, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+			if (dicEmailEnabled)
+				sendSuccessfulMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code);
 		}
 		else
 		{
 			String errorLog = error.isBlank() ? "" : " - " + error;
-			logger.warn(
-					"Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}'{}",
-					dmsIdentifier, projectIdentifier, task.getId(), errorLog);
-
-			sendErrorMail(api, task, projectIdentifier, dmsIdentifier, code, error);
+			logger.warn("Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' in Task '{}'{}",
+					dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task),
+					errorLog);
+			if (dicEmailEnabled)
+				sendErrorMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code, error);
 		}
 	}
 
-	private void sendSuccessfulMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
-			String code)
+	private void sendSuccessfulMail(ProcessPluginApi api, Task task, String projectIdentifier,
+			String consortiumIdentifier, String dmsIdentifier, String code)
 	{
 		String subject = "Data-set successfully delivered in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "A data-set has been successfully delivered and retrieved in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
-				+ "' to/from DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
-				+ "' with status code '" + code + "'";
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task '"
+				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' to/from DMS '" + consortiumIdentifier
+				+ "|" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier + "' with status code '"
+				+ code + "'";
 
 		api.getMailService().send(subject, message);
 	}
 
-	private void sendErrorMail(ProcessPluginApi api, Task task, String projectIdentifier, String dmsIdentifier,
-			String code, String error)
+	private void sendErrorMail(ProcessPluginApi api, Task task, String projectIdentifier, String consortiumIdentifier,
+			String dmsIdentifier, String code, String error)
 	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
 		String message = "Could not download, decrypt, validate or insert data-set in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
-				+ "' at DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
-				+ "':\n" + "- status code: " + code + "\n" + "- error: " + error;
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' and Task '"
+				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' at DMS '" + consortiumIdentifier + "|"
+				+ dmsIdentifier + "' regarding project-identifier '" + projectIdentifier + "':\n" + "- status code: "
+				+ code + "\n" + "- error: " + error;
 
 		api.getMailService().send(subject, message);
-	}
-
-	private void updateTaskOnServer(ProcessPluginApi api, Task startTask)
-	{
-		api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
-				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(startTask);
 	}
 }

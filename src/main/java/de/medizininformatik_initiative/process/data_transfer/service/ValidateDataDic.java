@@ -3,17 +3,15 @@ package de.medizininformatik_initiative.process.data_transfer.service;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 
 import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
-import de.medizininformatik_initiative.process.data_transfer.variables.ProcessConfig;
-import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.MimeTypeHelper;
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.activity.ServiceTask;
@@ -39,35 +37,25 @@ public class ValidateDataDic implements ServiceTask
 	@Override
 	public void execute(ProcessPluginApi api, Variables variables)
 	{
+		Task task = variables.getStartTask();
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 
 		DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
 
-		ProcessConfig processConfig = new ProcessConfig(Map.of("fhirStoreBaseUrl", client.getBaseUrl(),
-				"projectIdentifier", ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER + "|" + projectIdentifier,
-				"recipientDms", dmsIdentifier));
+		logger.info("Validating data-set for DMS '{}' and project-identifier '{}' in Task '{}'", dmsIdentifier,
+				projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
-		logger.info("Validating data-set {}", processConfig);
-
-		try
-		{
-			List<Resource> resources = variables
-					.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
-			resources.forEach(r -> validate(client, api.getFhirContext(), api.getMimeTypeService(), r));
-		}
-		catch (Exception exception)
-		{
-			logger.warn("Validating data-set failed - {} {}", exception.getMessage(), processConfig);
-			throw new RuntimeException("Validating data-set failed - " + exception.getMessage(), exception);
-		}
+		List<Resource> resources = variables
+				.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
+		resources.forEach(r -> validate(client, api.getFhirContext(), api.getMimeTypeService(), r));
 	}
 
 	private DsfClient getDsfClientForFhirStore(DsfClientProvider provider, String fhirStoreId)
 	{
 		return provider.getById(fhirStoreId)
-				.orElseThrow(() -> new RuntimeException("DSF client config with id '" + fhirStoreId + "' not found"));
+				.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreId + "' not configured"));
 	}
 
 	private void validate(DsfClient client, FhirContext fhirContext, MimeTypeService mimeTypeService, Resource resource)

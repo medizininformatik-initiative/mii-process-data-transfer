@@ -18,7 +18,6 @@ import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.activity.ServiceTask;
 import dev.dsf.bpe.v2.client.dsf.BasicDsfClient;
 import dev.dsf.bpe.v2.client.dsf.DelayStrategy;
-import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
 import dev.dsf.bpe.v2.variables.Variables;
 
 public class DeleteData implements ServiceTask
@@ -30,9 +29,9 @@ public class DeleteData implements ServiceTask
 	}
 
 	@Override
-	public void execute(ProcessPluginApi api, Variables variables) throws ErrorBoundaryEvent, Exception
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
-		Task task = variables.getStartTask();
+		Task startTask = variables.getStartTask();
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
@@ -43,25 +42,20 @@ public class DeleteData implements ServiceTask
 				.getFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES);
 
 		logger.info(
-				"Permanently deleting data-set provided for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments)",
-				dmsIdentifier, projectIdentifier, task.getId(), transferDocumentReferenceLocation);
+				"Permanently deleting data-set provided for DMS '{}' and project-identifier '{}' in Task '{}' (DocumentReference '{}' and its encrypted attachments)",
+				dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(startTask),
+				transferDocumentReferenceLocation);
 
-		try
+		List<IdType> attachments = getAttachmentIds(transferBinaryReferenceList);
+
+		deletePermanently(api, attachments, Binary.class);
+		deletePermanently(api, new IdType(transferDocumentReferenceLocation), DocumentReference.class);
+
+		// Failed tasks are not automatically updated on process end listener
+		if (Task.TaskStatus.FAILED.equals(startTask.getStatus()))
 		{
-			List<IdType> attachments = getAttachmentIds(transferBinaryReferenceList);
-
-			deletePermanently(api, attachments, Binary.class);
-			deletePermanently(api, new IdType(transferDocumentReferenceLocation), DocumentReference.class);
-		}
-		catch (Exception exception)
-		{
-			logger.warn(
-					"Could not permanently delete data-set for DMS '{}' and project-identifier '{}' referenced in Task with id '{}' (DocumentReference with id '{}' and its encrypted attachments) - {}",
-					dmsIdentifier, projectIdentifier, task.getId(), transferDocumentReferenceLocation,
-					exception.getMessage());
-
-			throw new RuntimeException("Permanently deleting encrypted data-set failed - " + exception.getMessage(),
-					exception);
+			api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+					DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(startTask);
 		}
 	}
 
