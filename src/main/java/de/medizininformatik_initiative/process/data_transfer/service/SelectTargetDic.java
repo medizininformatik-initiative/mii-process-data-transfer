@@ -27,8 +27,8 @@ public class SelectTargetDic implements ServiceTask
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		Identifier dicIdentifier = getDicOrganizationIdentifier(task);
 		Endpoint dicEndpoint = getDicEndpoint(api, consortiumIdentifier, dicIdentifier);
-		Target dicTarget = createTarget(variables, dicIdentifier, dicEndpoint);
 
+		Target dicTarget = createTarget(variables, dicIdentifier, dicEndpoint);
 		variables.setTarget(dicTarget);
 	}
 

@@ -116,8 +116,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 				sendMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier,
 						transferDocumentReference.getIdElement());
 
-			Target target = createTarget(api, variables, consortiumIdentifier, dmsIdentifier);
-			variables.setTarget(target);
+			Target dmsTarget = createTarget(api, variables, consortiumIdentifier, dmsIdentifier);
+			variables.setTarget(dmsTarget);
 		}
 		catch (Exception exception)
 		{

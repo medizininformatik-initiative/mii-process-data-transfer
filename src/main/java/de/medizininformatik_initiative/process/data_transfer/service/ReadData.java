@@ -70,8 +70,10 @@ public class ReadData implements ServiceTask, InitializingBean
 
 		DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
 
-		logger.info("Reading data-set for DMS '{}|{}' and project-identifier '{}' in Task '{}'", consortiumIdentifier,
-				dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+		logger.info(
+				"Executing data-set transfer for DMS '{}|{}' and project-identifier '{}' with status timer interval '{}' in Task '{}'",
+				consortiumIdentifier, dmsIdentifier, projectIdentifier, statusTimerInterval,
+				api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		DocumentReference documentReference = readDocumentReference(api, client, task, dmsIdentifier,
 				projectIdentifier);
