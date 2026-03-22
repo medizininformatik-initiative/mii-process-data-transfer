@@ -56,6 +56,11 @@ public class TransferDataConfig
 	@Value("${de.medizininformatik.initiative.data.transfer.dic.email.enabled:false}")
 	private boolean dicEmailEnabled;
 
+	@ProcessDocumentation(processNames = {
+			"medizininformatik-initiativede_dataSend" }, description = "The period the process waits to receive the status from the DMS, must be an ISO 8601 time duration pattern")
+	@Value("${de.medizininformatik.initiative.data.transfer.dic.status.timer.interval:PT45M}")
+	private String statusTimerInterval;
+
 	@ProcessDocumentation(required = true, processNames = {
 			"medizininformatik-initiativede_dataReceive" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dic-fhir-store")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.id:#{null}}")
@@ -142,7 +147,7 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public ReadData readData()
 	{
-		return new ReadData(fhirStoreIdDic, fhirBinaryStreamReadEnabled);
+		return new ReadData(fhirStoreIdDic, fhirBinaryStreamReadEnabled, statusTimerInterval);
 	}
 
 	@Bean

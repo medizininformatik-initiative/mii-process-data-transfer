@@ -22,11 +22,11 @@
     <bpmn:sequenceFlow id="Flow_0kkjyst" sourceRef="DataSendMessageStartEvent" targetRef="ReadData" />
     <bpmn:sequenceFlow id="Flow_15vmy2h" sourceRef="EncryptAndStoreData" targetRef="sendData" />
     <bpmn:sequenceFlow id="Flow_0phc02z" sourceRef="deleteData" targetRef="DataSendEndEvent" />
-    <bpmn:intermediateCatchEvent id="waitForRetrieval" name="wait&#10;(45 minutes)">
+    <bpmn:intermediateCatchEvent id="waitForRetrieval" name="wait&#10;(default 45 minutes)">
       <bpmn:incoming>Flow_1txtbeg</bpmn:incoming>
       <bpmn:outgoing>Flow_1c71l1d</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_0f9vpum">
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT45M</bpmn:timeDuration>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${statusTimerInterval}</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
     <bpmn:endEvent id="DataSendEndEvent" name="end data send process">
@@ -122,7 +122,7 @@
       <bpmndi:BPMNShape id="Event_1mhzwqb_di" bpmnElement="waitForRetrieval">
         <dc:Bounds x="1062" y="282" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1049" y="323" width="62" height="27" />
+          <dc:Bounds x="1054" y="323" width="52" height="40" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_1gb5cjp_di" bpmnElement="DataSendEndEvent">

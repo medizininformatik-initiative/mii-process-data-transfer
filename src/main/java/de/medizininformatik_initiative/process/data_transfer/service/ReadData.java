@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.hl7.fhir.r4.model.Attachment;
@@ -18,6 +19,7 @@ import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.process.data_transfer.variables.DataResource;
@@ -30,22 +32,37 @@ import dev.dsf.bpe.v2.service.DsfClientProvider;
 import dev.dsf.bpe.v2.service.TaskHelper;
 import dev.dsf.bpe.v2.variables.Variables;
 
-public class ReadData implements ServiceTask
+public class ReadData implements ServiceTask, InitializingBean
 {
 	private static final Logger logger = LoggerFactory.getLogger(ReadData.class);
 
+	private static final String ISO_8601_DURATION_STRING = "^P(?:([0-9]+)Y)?(?:([0-9]+)M)?(?:([0-9]+)D)?(T(?:([0-9]+)H)?(?:([0-9]+)M)?(?:([0-9]+)(?:[.,]([0-9]{0,9}))?S)?)?$";
+	private static final Pattern ISO_8601_DURATION = Pattern.compile(ISO_8601_DURATION_STRING);
+
 	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamReadEnabled;
+	private final String statusTimerInterval;
 
-	public ReadData(String fhirStoreId, boolean fhirBinaryStreamReadEnabled)
+	public ReadData(String fhirStoreId, boolean fhirBinaryStreamReadEnabled, String statusTimerInterval)
 	{
 		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadEnabled = fhirBinaryStreamReadEnabled;
+		this.statusTimerInterval = statusTimerInterval;
+	}
+
+	@Override
+	public void afterPropertiesSet() throws Exception
+	{
+		if (!ISO_8601_DURATION.matcher(statusTimerInterval).matches())
+			throw new IllegalArgumentException(
+					"statusTimerInterval '" + statusTimerInterval + "' not in ISO 8601 time duration format");
 	}
 
 	@Override
 	public void execute(ProcessPluginApi api, Variables variables)
 	{
+		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_STATUS_TIMER_INTERVAL, statusTimerInterval);
+
 		Task task = variables.getStartTask();
 		String dmsIdentifier = getDmsIdentifier(api.getTaskHelper(), task);
 		String consortiumIdentifier = getConsortiumIdentifier(api.getTaskHelper(), task);
@@ -68,6 +85,11 @@ public class ReadData implements ServiceTask
 		variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
 				documentReference);
 		variables.setFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
+	}
+
+	private void checkStatusTimerInterval()
+	{
+
 	}
 
 	private String getProjectIdentifier(ProcessPluginApi api, Task task)
