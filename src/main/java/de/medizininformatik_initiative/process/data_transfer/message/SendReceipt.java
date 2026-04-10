@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Type;
 import org.springframework.beans.factory.InitializingBean;
@@ -75,6 +77,10 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 		{
 			coding.setCode(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR);
 		}
+
+		parameterComponent.getExtensionsByUrl(ConstantsBase.EXTENSION_DATA_SET_STATUS_ERROR_URL).stream()
+				.map(Extension::getValue).filter(StringType.class::isInstance).map(StringType.class::cast)
+				.forEach(v -> v.setValue(v.getValue().split(ConstantsBase.EXCEPTION_MESSAGE_DIVIDER, 2)[0]));
 
 		return parameterComponent;
 	}

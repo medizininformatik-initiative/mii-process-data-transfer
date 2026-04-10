@@ -358,10 +358,10 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		try (InputStream in = inputStream)
 		{
 			MediaType mediaType = MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM);
-			IdType id = api.getDsfClientProvider().getLocal()
+			IdType id = api.getDsfClientProvider().getLocal().withMinimalReturn()
 					.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
 							DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN))
-					.createBinary(in, mediaType, securityContext).getIdElement();
+					.createBinary(in, mediaType, securityContext);
 
 			createAndSaveListEntryComponent(api, transferBinaryReferenceList, id, mimeType, variables);
 		}
