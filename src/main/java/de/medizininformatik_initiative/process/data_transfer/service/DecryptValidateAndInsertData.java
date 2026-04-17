@@ -179,12 +179,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 							DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN))
 					.readBinary(url.getIdPart(), MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
 
-			inputStream = api.getCryptoService().createRsaKem().decrypt(inputStream, privateKey);
-
-			if (!inputStream.markSupported())
-				inputStream = new BufferedInputStream(inputStream);
-
-			return inputStream;
+			return api.getCryptoService().createRsaKem().decrypt(inputStream, privateKey);
 		}
 		catch (Exception exception)
 		{
@@ -211,6 +206,9 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 
 	private void validateDataStream(ProcessPluginApi api, InputStream inputStream, String mimeType)
 	{
+		if (!inputStream.markSupported())
+			inputStream = new BufferedInputStream(inputStream);
+
 		api.getMimeTypeService().validateWithException(inputStream, mimeType);
 	}
 
