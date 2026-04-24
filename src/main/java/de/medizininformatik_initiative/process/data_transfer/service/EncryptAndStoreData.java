@@ -86,7 +86,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		List<Resource> resources = variables
 				.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES);
 
-		logger.info("Encrypting and storing data-set for DMS '{}' and project-identifier '{}' referenced in Task '{}'",
+		logger.info("Encrypting and storing data-set for DMS '{}' and project-identifier '{}' in Task '{}'",
 				dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		ListResource transferBinaryReferenceList = new ListResource();
