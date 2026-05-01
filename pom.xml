@@ -12,7 +12,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.release>25</maven.compiler.release>
 
-		<dsf.version>2.0.2</dsf.version>
+		<dsf.version>2.1.0</dsf.version>
 		<testSetup.location>../mii-processes-test-setup</testSetup.location>
 	</properties>
 
@@ -139,8 +139,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>buildnumber-maven-plugin</artifactId>
-				<!-- 3.1.0 not working, no git commit hash as buildnumber -->
-				<version>1.4</version>
+				<version>3.3.0</version>
 				<executions>
 					<execution>
 						<phase>validate</phase>
@@ -165,9 +164,9 @@
 			<plugin>
 				<groupId>net.revelc.code</groupId>
 				<artifactId>impsort-maven-plugin</artifactId>
-				<version>1.12.0</version>
+				<version>1.13.0</version>
 				<configuration>
-					<compliance>17</compliance>
+					<compliance>25</compliance>
 					<groups>java.,javax.,org.,com.</groups>
 					<staticGroups>java,*</staticGroups>
 				</configuration>
