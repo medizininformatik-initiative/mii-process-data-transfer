@@ -61,7 +61,6 @@ public class ReadData implements ServiceTask, InitializingBean
 	@Override
 	public void execute(ProcessPluginApi api, Variables variables)
 	{
-		checkStatusTimerInterval();
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_STATUS_TIMER_INTERVAL, statusTimerInterval);
 
 		Task task = variables.getStartTask();
@@ -88,11 +87,6 @@ public class ReadData implements ServiceTask, InitializingBean
 		variables.setFhirResource(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DOCUMENT_REFERENCE,
 				documentReference);
 		variables.setFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
-	}
-
-	private void checkStatusTimerInterval()
-	{
-		// TODO check iso format for duration
 	}
 
 	private String getProjectIdentifier(ProcessPluginApi api, Task task)
