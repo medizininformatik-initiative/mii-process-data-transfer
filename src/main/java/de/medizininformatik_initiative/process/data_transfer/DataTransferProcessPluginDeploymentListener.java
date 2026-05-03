@@ -8,7 +8,6 @@ import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.authorization.AuthorizationProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
-import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.ProcessPluginDeploymentListener;
 
@@ -20,19 +19,15 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 	private final String fhirStoreIdDms;
 
 	private final KeyProvider keyProvider;
-
-	private final MetadataResourceConverter metadataResourceConverter;
 	private final AuthorizationProvider authorizationProvider;
 
 	public DataTransferProcessPluginDeploymentListener(ProcessPluginApi api, String fhirStoreIdDic,
-			String fhirStoreIdDms, KeyProvider keyProvider, MetadataResourceConverter metadataResourceConverter,
-			AuthorizationProvider authorizationProvider)
+			String fhirStoreIdDms, KeyProvider keyProvider, AuthorizationProvider authorizationProvider)
 	{
 		this.api = api;
 		this.fhirStoreIdDic = fhirStoreIdDic;
 		this.fhirStoreIdDms = fhirStoreIdDms;
 		this.keyProvider = keyProvider;
-		this.metadataResourceConverter = metadataResourceConverter;
 		this.authorizationProvider = authorizationProvider;
 	}
 
@@ -41,7 +36,6 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 	{
 		Objects.requireNonNull(api, "api");
 		Objects.requireNonNull(keyProvider, "keyProvider");
-		Objects.requireNonNull(metadataResourceConverter, "metadataResourceConverter");
 		Objects.requireNonNull(authorizationProvider, "authorizationProvider");
 	}
 

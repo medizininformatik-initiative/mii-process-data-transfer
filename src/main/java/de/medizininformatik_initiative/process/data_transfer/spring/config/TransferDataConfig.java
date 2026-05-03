@@ -25,7 +25,6 @@ import de.medizininformatik_initiative.process.data_transfer.service.StoreReceip
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import de.medizininformatik_initiative.processes.common.util.MetadataResourceConverter;
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.ProcessPluginDeploymentListener;
 import dev.dsf.bpe.v2.documentation.ProcessDocumentation;
@@ -121,13 +120,6 @@ public class TransferDataConfig
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
-	public MetadataResourceConverter metadataResourceConverter()
-	{
-		return new MetadataResourceConverter(api);
-	}
-
-	@Bean
-	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public AuthorizationProvider authorizationProvider()
 	{
 		return new AuthorizationProvider(api, additionallyAllowedSenders, additionallyAllowedReceivers);
@@ -138,7 +130,7 @@ public class TransferDataConfig
 	public ProcessPluginDeploymentListener dataTransferProcessPluginDeploymentListener()
 	{
 		return new DataTransferProcessPluginDeploymentListener(api, fhirStoreIdDic, fhirStoreIdDms, keyProviderDms(),
-				metadataResourceConverter(), authorizationProvider());
+				authorizationProvider());
 	}
 
 	// dataSend
