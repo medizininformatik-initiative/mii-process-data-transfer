@@ -47,29 +47,28 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 		{
 			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataSend();
 
-			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDic)
-					.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreIdDic + "' not configured"))
-					.getConformance();
-
-			Objects.requireNonNull(conformance, "Connection test for DSF FHIR client '" + fhirStoreIdDic
-					+ "' failed - CapabilityStatement is null");
+			testConnection(fhirStoreIdDic);
 		}
 
 		if (activeProcesses.contains(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE))
 		{
 			authorizationProvider.searchCheckAddAndUpdateAuthorizationDataReceive();
 
-			CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreIdDms)
-					.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreIdDms + "' not configured"))
-					.getConformance();
-
-			Objects.requireNonNull(conformance, "Connection test for DSF FHIR client '" + fhirStoreIdDms
-					+ "' failed - CapabilityStatement is null");
+			testConnection(fhirStoreIdDms);
 
 			Objects.requireNonNull(keyProvider.getPublicKey(), "PublicKey");
 			Objects.requireNonNull(keyProvider.getPrivateKey(), "PrivateKey");
-
 			keyProvider.createPublicKeyIfNotExists();
 		}
+	}
+
+	private void testConnection(String fhirStoreId)
+	{
+		CapabilityStatement conformance = api.getDsfClientProvider().getById(fhirStoreId)
+				.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreId + "' not configured"))
+				.getConformance();
+
+		Objects.requireNonNull(conformance,
+				"Connection test for DSF FHIR client '" + fhirStoreId + "' failed - CapabilityStatement is null");
 	}
 }
