@@ -4,8 +4,6 @@ import java.util.Objects;
 
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Task;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
@@ -17,8 +15,6 @@ import dev.dsf.bpe.v2.variables.Variables;
 
 public class HandleErrorSend implements ServiceTask, InitializingBean
 {
-	private static final Logger logger = LoggerFactory.getLogger(HandleErrorSend.class);
-
 	private final DataSetStatusGenerator statusGenerator;
 	private final boolean dicEmailEnabled;
 
