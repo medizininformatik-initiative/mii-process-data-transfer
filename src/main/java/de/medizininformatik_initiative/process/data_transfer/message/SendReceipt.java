@@ -16,6 +16,7 @@ import de.medizininformatik_initiative.processes.common.activity.RetryTaskSender
 import de.medizininformatik_initiative.processes.common.error.MessageEndEventErrorHandlerWithTaskOutput;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
+
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.activity.MessageEndEvent;
 import dev.dsf.bpe.v2.activity.task.TaskSender;
@@ -49,19 +50,12 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 			SendTaskValues sendTaskValues, Target target)
 	{
 		if (variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR) != null)
-			return createReceiptError(api, variables);
+			return createReceiptError(variables);
 		else
-			return createReceiptOk(api);
+			return createReceiptOk();
 	}
 
-	@Override
-	public TaskSender getTaskSender(ProcessPluginApi api, Variables variables, SendTaskValues sendTaskValues)
-	{
-		return new RetryTaskSender(api, variables, sendTaskValues, getBusinessKeyStrategy(),
-				(target) -> getAdditionalInputParameters(api, variables, sendTaskValues, target));
-	}
-
-	private List<Task.ParameterComponent> createReceiptError(ProcessPluginApi api, Variables variables)
+	private List<Task.ParameterComponent> createReceiptError(Variables variables)
 	{
 		return statusGenerator.transformOutputToInputComponent(variables.getStartTask(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, api.getProcessPluginDefinition().getResourceVersion(),
@@ -85,12 +79,19 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 		return parameterComponent;
 	}
 
-	private List<Task.ParameterComponent> createReceiptOk(ProcessPluginApi api)
+	private List<Task.ParameterComponent> createReceiptOk()
 	{
 		return List.of(statusGenerator.createDataSetStatusInput(api.getProcessPluginDefinition().getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK,
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, api.getProcessPluginDefinition().getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
+	}
+
+	@Override
+	public TaskSender getTaskSender(ProcessPluginApi api, Variables variables, SendTaskValues sendTaskValues)
+	{
+		return new RetryTaskSender(api, variables, sendTaskValues, getBusinessKeyStrategy(),
+				(target) -> getAdditionalInputParameters(api, variables, sendTaskValues, target));
 	}
 
 	@Override

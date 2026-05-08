@@ -27,6 +27,7 @@ import dev.dsf.bpe.v2.activity.ServiceTask;
 import dev.dsf.bpe.v2.client.dsf.BasicDsfClient;
 import dev.dsf.bpe.v2.client.dsf.DelayStrategy;
 import dev.dsf.bpe.v2.error.ErrorBoundaryEvent;
+import dev.dsf.bpe.v2.service.TaskHelper;
 import dev.dsf.bpe.v2.variables.Variables;
 import jakarta.ws.rs.core.MediaType;
 
@@ -55,13 +56,13 @@ public class DownloadData implements ServiceTask, InitializingBean
 		Task task = variables.getStartTask();
 		String sendingOrganization = task.getRequester().getIdentifier().getValue();
 
-		String consortiumIdentifier = getConsortiumIdentifier(api, task);
+		String consortiumIdentifier = getConsortiumIdentifier(api.getTaskHelper(), task);
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER, consortiumIdentifier);
 
-		String projectIdentifier = getProjectIdentifier(task);
+		String projectIdentifier = getProjectIdentifier(api.getTaskHelper(), task);
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER, projectIdentifier);
 
-		IdType documentReferenceLocation = getDocumentReferenceLocation(api, task, sendingOrganization,
+		IdType documentReferenceLocation = getDocumentReferenceLocation(api.getTaskHelper(), task, sendingOrganization,
 				projectIdentifier);
 		variables.setString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION,
 				documentReferenceLocation.getValue());
@@ -86,7 +87,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			String message = "Download data-set failed - " + exception.getMessage();
+			String message = "Download data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage();
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
@@ -100,30 +101,29 @@ public class DownloadData implements ServiceTask, InitializingBean
 		}
 	}
 
-	private String getProjectIdentifier(Task task)
+	private String getProjectIdentifier(TaskHelper helper, Task task)
 	{
-		return task.getInput().stream().filter(i -> i.getType().getCoding().stream()
-				.anyMatch(c -> ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER.equals(c.getSystem())
-						&& ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER.equals(c.getCode())))
-				.filter(i -> i.getValue() instanceof Identifier).map(i -> (Identifier) i.getValue())
+		return helper.getInputParameters(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER, Identifier.class)
+				.map(i -> (Identifier) i.getValue())
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
-				.map(Identifier::getValue).findFirst()
-				.orElseThrow(() -> new RuntimeException("Task.input:project-identifier missing"));
+				.map(Identifier::getValue).map(String::trim).findFirst().orElseThrow(() -> new RuntimeException(
+						"Task.input:project-identifier missing'"));
 	}
 
-	private String getConsortiumIdentifier(ProcessPluginApi api, Task task)
+	private String getConsortiumIdentifier(TaskHelper helper, Task task)
 	{
-		return api.getTaskHelper()
+		return helper
 				.getFirstInputParameterValue(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER, Reference.class)
 				.orElseThrow(() -> new IllegalArgumentException("Task.input:consortium-identifier missing"))
 				.getIdentifier().getValue();
 	}
 
-	private IdType getDocumentReferenceLocation(ProcessPluginApi api, Task task, String sendingOrganization,
+	private IdType getDocumentReferenceLocation(TaskHelper helper, Task task, String sendingOrganization,
 			String projectIdentifier)
 	{
-		List<String> dataSetReferences = api.getTaskHelper()
+		List<String> dataSetReferences = helper
 				.getInputParameters(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION,
 						Reference.class)
@@ -137,7 +137,7 @@ public class DownloadData implements ServiceTask, InitializingBean
 			logger.warn(
 					"Found {} DocumentReference locations from organization '{}' and project-identifier '{}' in Task '{}', using only the first",
 					dataSetReferences.size(), sendingOrganization, projectIdentifier,
-					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+					helper.getLocalVersionlessAbsoluteUrl(task));
 
 		return new IdType(dataSetReferences.getFirst());
 	}

@@ -66,7 +66,7 @@ public class ReadData implements ServiceTask, InitializingBean
 		Task task = variables.getStartTask();
 		String dmsIdentifier = getDmsIdentifier(api.getTaskHelper(), task);
 		String consortiumIdentifier = getConsortiumIdentifier(api.getTaskHelper(), task);
-		String projectIdentifier = getProjectIdentifier(api, task);
+		String projectIdentifier = getProjectIdentifier(api.getTaskHelper(), task);
 
 		DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
 
@@ -89,9 +89,9 @@ public class ReadData implements ServiceTask, InitializingBean
 		variables.setFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_INITIAL_DATA_RESOURCES, resources);
 	}
 
-	private String getProjectIdentifier(ProcessPluginApi api, Task task)
+	private String getProjectIdentifier(TaskHelper helper, Task task)
 	{
-		List<String> identifiers = api.getTaskHelper()
+		List<String> identifiers = helper
 				.getInputParameterValues(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER, Identifier.class)
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
@@ -103,7 +103,7 @@ public class ReadData implements ServiceTask, InitializingBean
 		if (identifiers.size() > 1)
 			logger.warn("Found {} Task.input:project-identifier, using the first '{}' from Task '{}'",
 					identifiers.size(), identifiers.getFirst(),
-					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+					helper.getLocalVersionlessAbsoluteUrl(task));
 
 		return identifiers.getFirst();
 	}

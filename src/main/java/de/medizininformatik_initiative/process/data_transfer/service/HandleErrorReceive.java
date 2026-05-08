@@ -51,7 +51,7 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
-		String message = "Could not download data-set in process '"
+		String message = "Could not download, decrypt, validate or insert data-set in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' and Task '"
 				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' from organization '"
 				+ task.getRequester().getIdentifier().getValue() + "' and project-identifier '" + projectIdentifier
