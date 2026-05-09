@@ -183,8 +183,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException(
-					"Could not decrypt downloaded data-set (inputstream) - " + exception.getMessage(), exception);
+			throw new RuntimeException("Could not decrypt downloaded data-set (inputstream)"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -199,8 +199,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not decrypt downloaded data-set (resource) - " + exception.getMessage(),
-					exception);
+			throw new RuntimeException("Could not decrypt downloaded data-set (resource)"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -231,8 +231,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not insert data-set attachment (inputstream) - " + exception.getMessage(),
-					exception);
+			throw new RuntimeException("Could not insert data-set attachment (inputstream)"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -247,8 +247,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not insert data-set attachment (resource) - " + exception.getMessage(),
-					exception);
+			throw new RuntimeException("Could not insert data-set attachment (resource)"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 

@@ -102,8 +102,7 @@ public class ReadData implements ServiceTask, InitializingBean
 
 		if (identifiers.size() > 1)
 			logger.warn("Found {} Task.input:project-identifier, using the first '{}' from Task '{}'",
-					identifiers.size(), identifiers.getFirst(),
-					helper.getLocalVersionlessAbsoluteUrl(task));
+					identifiers.size(), identifiers.getFirst(), helper.getLocalVersionlessAbsoluteUrl(task));
 
 		return identifiers.getFirst();
 	}

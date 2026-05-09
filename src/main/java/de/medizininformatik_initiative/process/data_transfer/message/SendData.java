@@ -90,8 +90,8 @@ public class SendData implements MessageSendTask
 			return errorCode;
 		};
 
-		Function<Exception, String> errorMessageTranslator = (exception) -> "Send DocumentReference location failed - "
-				+ exception.getMessage();
+		Function<Exception, String> errorMessageTranslator = (exception) -> "Send data failed"
+				+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage();
 
 		return new ExceptionToErrorBoundaryEventTranslationErrorHandler(errorCodeTranslator, errorMessageTranslator);
 	}

@@ -46,10 +46,10 @@ public class HandleErrorSend implements ServiceTask, InitializingBean
 		variables.updateTask(task);
 
 		if (dicEmailEnabled)
-			sendMail(api, task, variables, errorMessage);
+			sendMail(api, variables, task, errorMessage);
 	}
 
-	private void sendMail(ProcessPluginApi api, Task task, Variables variables, String errorMessage)
+	private void sendMail(ProcessPluginApi api, Variables variables, Task task, String error)
 	{
 		String consortiumIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
@@ -66,8 +66,7 @@ public class HandleErrorSend implements ServiceTask, InitializingBean
 		String message = "Could not provide data-set in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND
 				+ "' and Task '" + api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' for DMS '"
 				+ consortiumIdentifier + "|" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
-				+ "':\n" + "- status code: " + statusCode + "\n" + "- error: "
-				+ (errorMessage == null ? "none" : errorMessage);
+				+ "':\n" + "- status code: " + statusCode + "\n" + "- error: " + (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);
 	}

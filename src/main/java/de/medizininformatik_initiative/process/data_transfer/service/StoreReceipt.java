@@ -111,7 +111,7 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 		}
 		else
 		{
-			String errorLog = error.isBlank() ? "" : " - " + error;
+			String errorLog = error.isBlank() ? "" : ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + error;
 			logger.warn("Could not deliver encrypted data-set for DMS '{}' and project-identifier '{}' in Task '{}'{}",
 					dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task),
 					errorLog);

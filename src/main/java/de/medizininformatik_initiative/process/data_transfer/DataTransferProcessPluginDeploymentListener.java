@@ -8,6 +8,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.authorization.AuthorizationProvider;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
+import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.ProcessPluginDeploymentListener;
 
@@ -68,7 +69,7 @@ public class DataTransferProcessPluginDeploymentListener implements ProcessPlugi
 				.orElseThrow(() -> new RuntimeException("DSF FHIR client '" + fhirStoreId + "' not configured"))
 				.getConformance();
 
-		Objects.requireNonNull(conformance,
-				"Connection test for DSF FHIR client '" + fhirStoreId + "' failed - CapabilityStatement is null");
+		Objects.requireNonNull(conformance, "Connection test for DSF FHIR client '" + fhirStoreId + "' failed"
+				+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + "CapabilityStatement is null");
 	}
 }

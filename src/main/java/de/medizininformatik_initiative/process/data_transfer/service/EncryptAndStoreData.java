@@ -125,7 +125,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 					transferBinaryReferenceList);
 
 			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_SENT,
-					"Encrypting and storing data-set failed - " + exception.getMessage());
+					"Encrypting and storing data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER
+							+ exception.getMessage());
 		}
 	}
 
@@ -200,9 +201,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException(
-					"Could not extract PublicKey from Binary in PublicKey Bundle - " + exception.getMessage(),
-					exception);
+			throw new RuntimeException("Could not extract PublicKey from Binary in PublicKey Bundle"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -331,8 +331,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException(
-					"Could not encrypt data-set (inputstream) to transmit - " + exception.getMessage(), exception);
+			throw new RuntimeException("Could not encrypt data-set (inputstream) to transmit"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -347,8 +347,8 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not encrypt data-set (resource) to transmit - " + exception.getMessage(),
-					exception);
+			throw new RuntimeException("Could not encrypt data-set (resource) to transmit"
+					+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(), exception);
 		}
 	}
 
@@ -367,7 +367,9 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			throw new RuntimeException("Could not store Binary - " + exception.getMessage(), exception);
+			throw new RuntimeException(
+					"Could not store Binary" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage(),
+					exception);
 		}
 	}
 

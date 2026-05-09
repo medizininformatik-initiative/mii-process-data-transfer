@@ -16,7 +16,6 @@ import de.medizininformatik_initiative.processes.common.activity.RetryTaskSender
 import de.medizininformatik_initiative.processes.common.error.MessageEndEventErrorHandlerWithTaskOutput;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-
 import dev.dsf.bpe.v2.ProcessPluginApi;
 import dev.dsf.bpe.v2.activity.MessageEndEvent;
 import dev.dsf.bpe.v2.activity.task.TaskSender;
@@ -115,7 +114,8 @@ public class SendReceipt implements MessageEndEvent, InitializingBean
 			return statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
 					statusCode, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 					api.getProcessPluginDefinition().getResourceVersion(),
-					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Send receipt failed");
+					ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS,
+					"Send receipt failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage());
 		};
 	}
 }

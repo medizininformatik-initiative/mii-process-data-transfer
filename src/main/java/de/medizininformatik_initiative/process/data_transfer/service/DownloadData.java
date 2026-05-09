@@ -87,7 +87,8 @@ public class DownloadData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
-			String message = "Download data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage();
+			String message = "Download data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER
+					+ exception.getMessage();
 			task.setStatus(Task.TaskStatus.FAILED);
 			task.addOutput(
 					statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
@@ -103,12 +104,13 @@ public class DownloadData implements ServiceTask, InitializingBean
 
 	private String getProjectIdentifier(TaskHelper helper, Task task)
 	{
-		return helper.getInputParameters(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+		return helper
+				.getInputParameters(task, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
 						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER, Identifier.class)
 				.map(i -> (Identifier) i.getValue())
 				.filter(i -> ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER.equals(i.getSystem()))
-				.map(Identifier::getValue).map(String::trim).findFirst().orElseThrow(() -> new RuntimeException(
-						"Task.input:project-identifier missing'"));
+				.map(Identifier::getValue).map(String::trim).findFirst()
+				.orElseThrow(() -> new RuntimeException("Task.input:project-identifier missing'"));
 	}
 
 	private String getConsortiumIdentifier(TaskHelper helper, Task task)
@@ -191,7 +193,8 @@ public class DownloadData implements ServiceTask, InitializingBean
 			}
 			catch (Exception exception)
 			{
-				throw new RuntimeException("Downloading attachment failed - " + exception.getMessage(), exception);
+				throw new RuntimeException("Downloading attachment failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER
+						+ exception.getMessage(), exception);
 			}
 		}
 	}
