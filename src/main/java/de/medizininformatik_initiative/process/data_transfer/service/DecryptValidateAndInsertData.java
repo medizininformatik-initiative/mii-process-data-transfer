@@ -97,15 +97,6 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		{
 			String message = "Decrypt, validate or insert data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER
 					+ exception.getMessage();
-			task.setStatus(Task.TaskStatus.FAILED);
-			task.addOutput(
-					statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
-							ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
-							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-							api.getProcessPluginDefinition().getResourceVersion(),
-							ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, message));
-			variables.updateTask(task);
-
 			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, message);
 		}
 	}

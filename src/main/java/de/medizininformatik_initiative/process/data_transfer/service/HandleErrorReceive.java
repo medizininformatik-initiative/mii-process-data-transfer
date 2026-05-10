@@ -25,7 +25,7 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 	}
 
 	@Override
-	public void afterPropertiesSet()
+	public void afterPropertiesSet() throws Exception
 	{
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
@@ -34,19 +34,18 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 	public void execute(ProcessPluginApi api, Variables variables)
 	{
 		Task task = variables.getStartTask();
-		if (dmsEmailEnabled)
-			sendMail(api, variables, task);
+		String errorCode = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR);
+		String errorMessage = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE);
 
-		if (Task.TaskStatus.FAILED.equals(task.getStatus()))
-		{
-			api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
-					DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(task);
-		}
+		if (dmsEmailEnabled)
+			sendMail(api, variables, task, errorMessage);
+
+		failTask(api, task, errorCode, errorMessage, variables);
 	}
 
-	private void sendMail(ProcessPluginApi api, Variables variables, Task task)
+	private void sendMail(ProcessPluginApi api, Variables variables, Task task, String error)
 	{
-		String error = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_RECEIVE_ERROR_MESSAGE);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
@@ -59,5 +58,18 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 				+ "- error: " + (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);
+	}
+
+	private void failTask(ProcessPluginApi api, Task task, String errorCode, String errorMessage, Variables variables)
+	{
+		task.setStatus(Task.TaskStatus.FAILED);
+		task.addOutput(statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
+				errorCode, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				api.getProcessPluginDefinition().getResourceVersion(),
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, errorMessage));
+		variables.updateTask(task);
+
+		api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
+				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(task);
 	}
 }
