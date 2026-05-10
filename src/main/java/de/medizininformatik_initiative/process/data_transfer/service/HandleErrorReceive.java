@@ -60,7 +60,8 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 		api.getMailService().send(subject, message);
 	}
 
-	private void failAndAddOutputTask(ProcessPluginApi api, Task task, String errorCode, String errorMessage, Variables variables)
+	private void failAndAddOutputTask(ProcessPluginApi api, Task task, String errorCode, String errorMessage,
+			Variables variables)
 	{
 		task.setStatus(Task.TaskStatus.FAILED);
 		task.addOutput(statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
