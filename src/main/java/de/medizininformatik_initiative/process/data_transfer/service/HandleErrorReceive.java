@@ -41,7 +41,7 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 		if (dmsEmailEnabled)
 			sendMail(api, variables, task, errorMessage);
 
-		failTask(api, task, errorCode, errorMessage, variables);
+		failAndAddOutputTask(api, task, errorCode, errorMessage, variables);
 	}
 
 	private void sendMail(ProcessPluginApi api, Variables variables, Task task, String error)
@@ -60,7 +60,7 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 		api.getMailService().send(subject, message);
 	}
 
-	private void failTask(ProcessPluginApi api, Task task, String errorCode, String errorMessage, Variables variables)
+	private void failAndAddOutputTask(ProcessPluginApi api, Task task, String errorCode, String errorMessage, Variables variables)
 	{
 		task.setStatus(Task.TaskStatus.FAILED);
 		task.addOutput(statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
@@ -69,6 +69,7 @@ public class HandleErrorReceive implements ServiceTask, InitializingBean
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, errorMessage));
 		variables.updateTask(task);
 
+		// Failed tasks are not automatically updated on process end listener
 		api.getDsfClientProvider().getLocal().withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES,
 				DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)).update(task);
 	}
