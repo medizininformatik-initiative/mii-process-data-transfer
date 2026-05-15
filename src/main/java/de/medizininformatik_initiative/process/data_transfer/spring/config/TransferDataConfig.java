@@ -61,7 +61,7 @@ public class TransferDataConfig
 	private String statusTimerInterval;
 
 	@ProcessDocumentation(required = true, processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dic-fhir-store")
+			"medizininformatik-initiativede_dataReceive" }, description = "The ID of a DIC FHIR server from the main DSF configuration as 'DSF FHIR Client'", example = "dms-fhir-store")
 	@Value("${de.medizininformatik.initiative.data.transfer.dms.fhir.server.id:#{null}}")
 	private String fhirStoreIdDms;
 
