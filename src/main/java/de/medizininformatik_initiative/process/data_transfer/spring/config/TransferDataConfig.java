@@ -198,7 +198,8 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DecryptValidateAndInsertData decryptValidateAndInsertData()
 	{
-		return new DecryptValidateAndInsertData(fhirStoreIdDms, keyProviderDms(), dataSetStatusGenerator());
+		return new DecryptValidateAndInsertData(fhirStoreIdDms, keyProviderDms(), dataSetStatusGenerator(),
+				dmsEmailEnabled);
 	}
 
 	@Bean

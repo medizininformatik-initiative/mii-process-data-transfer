@@ -50,13 +50,15 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	private final String fhirStoreId;
 	private final KeyProvider keyProvider;
 	private final DataSetStatusGenerator statusGenerator;
+	private final boolean dmseMailEnabled;
 
 	public DecryptValidateAndInsertData(String fhirStoreId, KeyProvider keyProvider,
-			DataSetStatusGenerator statusGenerator)
+			DataSetStatusGenerator statusGenerator, boolean dmseMailEnabled)
 	{
 		this.fhirStoreId = fhirStoreId;
 		this.keyProvider = keyProvider;
 		this.statusGenerator = statusGenerator;
+		this.dmseMailEnabled = dmseMailEnabled;
 	}
 
 	@Override
@@ -73,25 +75,26 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 
 		List<Resource> encryptedResources = variables
 				.getFhirResourceList(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DATA_RESOURCES);
-		String sendingOrganizationIdentifier = getSendingOrganizationIdentifier(variables);
+		String dicIdentifier = getDicIdentifier(variables);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
 
 		logger.info(
 				"Decrypting, validating and inserting data-set from organization '{}' and project-identifier '{}' in Task '{}'",
-				sendingOrganizationIdentifier, projectIdentifier,
-				api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+				dicIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		try
 		{
 			ListResource resourceReferencesList = decryptValidateAndInsertResources(api, keyProvider.getPrivateKey(),
 					encryptedResources);
-			IdType documentReferenceId = createOrUpdateDocumentReference(api, sendingOrganizationIdentifier,
-					projectIdentifier, resourceReferencesList, task).toUnqualified();
+			IdType documentReferenceId = createOrUpdateDocumentReference(api, dicIdentifier, projectIdentifier,
+					resourceReferencesList, task).toUnqualified();
 
 			logger.info("Stored DocumentReference '{}' from organization '{}' and project-identifier '{}' in Task '{}'",
-					documentReferenceId, sendingOrganizationIdentifier, projectIdentifier,
+					documentReferenceId, dicIdentifier, projectIdentifier,
 					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
+			if (dmseMailEnabled)
+				sendMail(api, task, projectIdentifier, dicIdentifier);
 		}
 		catch (Exception exception)
 		{
@@ -101,7 +104,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 	}
 
-	private String getSendingOrganizationIdentifier(Variables variables)
+	private String getDicIdentifier(Variables variables)
 	{
 		return variables.getStartTask().getRequester().getIdentifier().getValue();
 	}
@@ -409,5 +412,18 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	{
 		return provider.getById(fhirStoreId)
 				.orElseThrow(() -> new RuntimeException("FHIR client '" + fhirStoreId + "' not configured"));
+	}
+
+	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String dicIdentifier)
+	{
+		String subject = "Data-set successfully received in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
+		String message = "A data-set has been successfully downloaded and inserted in process '"
+				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' and Task '"
+				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' from organization '" + dicIdentifier
+				+ "' regarding project-identifier '" + projectIdentifier + "' with status code '"
+				+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK + "'";
+
+		api.getMailService().send(subject, message);
 	}
 }

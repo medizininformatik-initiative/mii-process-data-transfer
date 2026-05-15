@@ -107,7 +107,7 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 					"Delivering encrypted data-set for DMS '{}' and project-identifier '{}' has status code '{}' in Task '{}'",
 					dmsIdentifier, projectIdentifier, code, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 			if (dicEmailEnabled)
-				sendSuccessfulMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code);
+				sendMailSuccess(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code);
 		}
 		else
 		{
@@ -116,12 +116,12 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 					dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task),
 					errorLog);
 			if (dicEmailEnabled)
-				sendErrorMail(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code, error);
+				sendMailError(api, task, projectIdentifier, consortiumIdentifier, dmsIdentifier, code, error);
 		}
 	}
 
-	private void sendSuccessfulMail(ProcessPluginApi api, Task task, String projectIdentifier,
-			String consortiumIdentifier, String dmsIdentifier, String code)
+	private void sendMailSuccess(ProcessPluginApi api, Task task, String projectIdentifier, String consortiumIdentifier,
+			String dmsIdentifier, String code)
 	{
 		String subject = "Data-set successfully delivered in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
@@ -134,7 +134,7 @@ public class StoreReceipt implements ServiceTask, InitializingBean
 		api.getMailService().send(subject, message);
 	}
 
-	private void sendErrorMail(ProcessPluginApi api, Task task, String projectIdentifier, String consortiumIdentifier,
+	private void sendMailError(ProcessPluginApi api, Task task, String projectIdentifier, String consortiumIdentifier,
 			String dmsIdentifier, String code, String error)
 	{
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
