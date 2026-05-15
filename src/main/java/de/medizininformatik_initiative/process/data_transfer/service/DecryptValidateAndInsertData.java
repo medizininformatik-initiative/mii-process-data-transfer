@@ -94,7 +94,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 					documentReferenceId, dicIdentifier, projectIdentifier,
 					api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 			if (dmseMailEnabled)
-				sendMail(api, task, projectIdentifier, dicIdentifier);
+				sendMail(api, task, projectIdentifier, dicIdentifier, documentReferenceId);
 		}
 		catch (Exception exception)
 		{
@@ -414,7 +414,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 				.orElseThrow(() -> new RuntimeException("FHIR client '" + fhirStoreId + "' not configured"));
 	}
 
-	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String dicIdentifier)
+	private void sendMail(ProcessPluginApi api, Task task, String projectIdentifier, String dicIdentifier,
+			IdType documentReferenceId)
 	{
 		String subject = "Data-set successfully received in process '"
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "'";
@@ -422,8 +423,16 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE + "' and Task '"
 				+ api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' from organization '" + dicIdentifier
 				+ "' regarding project-identifier '" + projectIdentifier + "' with status code '"
-				+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK + "'";
+				+ ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK
+				+ "' and can be accessed using the following url:\n" + "- "
+				+ getDsfFhirServerAbsoluteId(api, documentReferenceId);
 
 		api.getMailService().send(subject, message);
+	}
+
+	private String getDsfFhirServerAbsoluteId(ProcessPluginApi api, IdType idType)
+	{
+		return new IdType(api.getDsfClientProvider().getLocal().getBaseUrl(), idType.getResourceType(),
+				idType.getIdPart(), idType.getVersionIdPart()).getValue();
 	}
 }

@@ -193,54 +193,6 @@
 			<path value="Task.input.value[x].identifier"/>
 			<max value="0"/>
 		</element>
-		<element id="Task.output:document-reference-location">
-			<path value="Task.output"/>
-			<sliceName value="document-reference-location"/>
-			<min value="0"/>
-			<max value="1"/>
-		</element>
-		<element id="Task.output:document-reference-location.type">
-			<path value="Task.output.type"/>
-			<binding>
-				<strength value="required"/>
-				<valueSet value="http://medizininformatik-initiative.de/fhir/ValueSet/data-transfer|#{version}"/>
-			</binding>
-		</element>
-		<element id="Task.output:document-reference-location.type.coding">
-			<path value="Task.output.type.coding"/>
-			<min value="1"/>
-			<max value="1"/>
-		</element>
-		<element id="Task.output:document-reference-location.type.coding.system">
-			<path value="Task.output.type.coding.system"/>
-			<min value="1"/>
-			<fixedUri value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer"/>
-		</element>
-		<element id="Task.output:document-reference-location.type.coding.version">
-			<path value="Task.output.type.coding.version"/>
-			<min value="1"/>
-			<fixedString value="#{version}"/>
-		</element>
-		<element id="Task.output:document-reference-location.type.coding.code">
-			<path value="Task.output.type.coding.code"/>
-			<min value="1"/>
-			<fixedCode value="document-reference-location"/>
-		</element>
-		<element id="Task.output:document-reference-location.value[x]">
-			<path value="Task.output.value[x]"/>
-			<type>
-				<code value="Reference"/>
-				<targetProfile value="http://hl7.org/fhir/StructureDefinition/DocumentReference"/>
-			</type>
-		</element>
-		<element id="Task.output:document-reference-location.value[x].reference">
-			<path value="Task.output.value[x].reference"/>
-			<min value="1"/>
-		</element>
-		<element id="Task.output:document-reference-location.value[x].identifier">
-			<path value="Task.output.value[x].identifier"/>
-			<max value="0"/>
-		</element>
 		<element id="Task.output:data-set-status">
 			<path value="Task.output"/>
 			<sliceName value="data-set-status"/>
