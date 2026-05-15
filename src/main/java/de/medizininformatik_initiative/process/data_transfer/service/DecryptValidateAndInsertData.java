@@ -149,7 +149,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	{
 		String mimeType = getMimeType(item);
 		InputStream inputStream = decryptDataStream(api, item, privateKey);
-		validateDataStream(api, inputStream, mimeType);
+		inputStream = validateDataStream(api, inputStream, mimeType);
 		return insertDataStream(api, inputStream, mimeType);
 	}
 
@@ -198,12 +198,14 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 	}
 
-	private void validateDataStream(ProcessPluginApi api, InputStream inputStream, String mimeType)
+	private InputStream validateDataStream(ProcessPluginApi api, InputStream inputStream, String mimeType)
 	{
 		if (!inputStream.markSupported())
 			inputStream = new BufferedInputStream(inputStream);
 
 		api.getMimeTypeService().validateWithException(inputStream, mimeType);
+
+		return inputStream;
 	}
 
 	private void validateDataResource(ProcessPluginApi api, Binary binary)
@@ -219,7 +221,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		try (InputStream in = inputStream)
 		{
 			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
-			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType), client.getBaseUrl()  + "/DocumentReference");
+			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType),
+					client.getBaseUrl() + "/DocumentReference");
 			return createListEntryComponent(client.getBaseUrl(), id, mimeType);
 		}
 		catch (Exception exception)
