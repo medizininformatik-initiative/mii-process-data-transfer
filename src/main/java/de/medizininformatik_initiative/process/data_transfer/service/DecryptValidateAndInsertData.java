@@ -220,7 +220,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		{
 			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
 			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType), client.getBaseUrl());
-			return createListEntryComponent(id, mimeType);
+			return createListEntryComponent(client.getBaseUrl(), id, mimeType);
 		}
 		catch (Exception exception)
 		{
@@ -236,8 +236,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 			Resource resource = getResourceFromBytes(api, binary.getData(), binary.getContentType());
 			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
 			IdType id = client.create(resource).getIdElement();
-			id.setIdBase(client.getBaseUrl());
-			return createListEntryComponent(id, binary.getContentType());
+			return createListEntryComponent(client.getBaseUrl(), id, binary.getContentType());
 		}
 		catch (Exception exception)
 		{
@@ -246,8 +245,11 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 	}
 
-	private ListResource.ListEntryComponent createListEntryComponent(IdType id, String mimetype)
+	private ListResource.ListEntryComponent createListEntryComponent(String baseUrl, IdType id, String mimetype)
 	{
+		if (!id.hasBaseUrl())
+			id = new IdType(baseUrl, id.getResourceType(), id.getIdPart(), id.getVersionIdPart());
+
 		ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
 		entry.getItem().setReference(id.getValue());
 		entry.addExtension().setUrl(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE)
