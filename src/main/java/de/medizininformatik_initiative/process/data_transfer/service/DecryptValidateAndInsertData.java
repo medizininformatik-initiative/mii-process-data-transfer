@@ -219,8 +219,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		try (InputStream in = inputStream)
 		{
 			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
-			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType),
-					client.getBaseUrl() + "/DocumentReference");
+			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType), client.getBaseUrl());
 			return createListEntryComponent(id, mimeType);
 		}
 		catch (Exception exception)
@@ -235,8 +234,9 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		try
 		{
 			Resource resource = getResourceFromBytes(api, binary.getData(), binary.getContentType());
-			IdType id = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId).create(resource)
-					.getIdElement();
+			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
+			IdType id = client.create(resource).getIdElement();
+			id.setIdBase(client.getBaseUrl());
 			return createListEntryComponent(id, binary.getContentType());
 		}
 		catch (Exception exception)
