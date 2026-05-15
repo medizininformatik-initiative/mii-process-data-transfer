@@ -219,7 +219,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		try (InputStream in = inputStream)
 		{
 			DsfClient client = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId);
-			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType), client.getBaseUrl());
+			IdType id = client.withMinimalReturn().createBinary(in, MediaType.valueOf(mimeType), client.getBaseUrl()  + "/DocumentReference");
 			return createListEntryComponent(client.getBaseUrl(), id, mimeType);
 		}
 		catch (Exception exception)
