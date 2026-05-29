@@ -59,11 +59,18 @@
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_1ynmh47" sourceRef="handleErrorReceive" targetRef="Gateway_1u8di90" />
     <bpmn:sequenceFlow id="Flow_1a3apuy" sourceRef="Event_0w8rnob" targetRef="handleErrorReceive" />
+    <bpmn:textAnnotation id="TextAnnotation_1xrax0i">
+      <bpmn:text>All Error Boundery Event Code empty on purpose</bpmn:text>
+    </bpmn:textAnnotation>
   </bpmn:process>
   <bpmn:message id="Message_157qpi8" name="dataSend" />
-  <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" errorCode="dataReceiveError" />
+  <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataReceive">
+      <bpmndi:BPMNShape id="TextAnnotation_1xrax0i_di" bpmnElement="TextAnnotation_1xrax0i">
+        <dc:Bounds x="391" y="227" width="170" height="42" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0kx3ho7_di" bpmnElement="DataReceiveMessageStartEvent">
         <dc:Bounds x="179" y="99" width="36" height="36" />
         <bpmndi:BPMNLabel>
