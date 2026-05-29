@@ -8,6 +8,8 @@ import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Task.ParameterComponent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.activity.RetryTaskSender;
@@ -26,6 +28,8 @@ import jakarta.ws.rs.core.Response;
 
 public class SendData implements MessageSendTask
 {
+	private static final Logger logger = LoggerFactory.getLogger(SendData.class);
+
 	public SendData()
 	{
 	}
@@ -87,6 +91,8 @@ public class SendData implements MessageSendTask
 				errorCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
 			}
 
+			logger.error("Send data failed with error code '{}' - {} - throwing error boundary event", errorCode,
+					exception.getMessage());
 			return errorCode;
 		};
 

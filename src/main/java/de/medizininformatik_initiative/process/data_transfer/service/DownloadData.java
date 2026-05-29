@@ -87,6 +87,11 @@ public class DownloadData implements ServiceTask, InitializingBean
 		}
 		catch (Exception exception)
 		{
+			logger.error(
+					"Downloading data-set from organization '{}' for project-identifier '{}' in Task '{}' (DocumentReference '{}' and its encrypted attachments) failed - {} - throwing error boundary event",
+					sendingOrganization, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task),
+					documentReferenceLocation.getValue(), exception.getMessage());
+
 			String message = "Download data-set failed" + ConstantsBase.EXCEPTION_MESSAGE_DIVIDER
 					+ exception.getMessage();
 			throw new ErrorBoundaryEvent(ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR, message);
