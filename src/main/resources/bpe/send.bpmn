@@ -79,37 +79,38 @@
       <bpmn:incoming>Flow_15vmy2h</bpmn:incoming>
       <bpmn:outgoing>Flow_00jkdxe</bpmn:outgoing>
     </bpmn:sendTask>
-    <bpmn:boundaryEvent id="Event_1d8prc6" attachedToRef="sendData">
+    <bpmn:boundaryEvent id="sendError" attachedToRef="sendData">
       <bpmn:outgoing>Flow_09xay5j</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_1jyvbcb" errorRef="Error_03kz9w1" camunda:errorCodeVariable="dataSendError" camunda:errorMessageVariable="dataSendErrorMessage" />
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="Flow_09xay5j" sourceRef="Event_1d8prc6" targetRef="handleErrorSend" />
+    <bpmn:sequenceFlow id="Flow_09xay5j" sourceRef="sendError" targetRef="handleErrorSend" />
     <bpmn:sequenceFlow id="Flow_1gbv2sn" sourceRef="handleErrorSend" targetRef="Gateway_1g759ob" />
     <bpmn:serviceTask id="handleErrorSend" name="handle error" camunda:class="de.medizininformatik_initiative.process.data_transfer.service.HandleErrorSend">
       <bpmn:incoming>Flow_09xay5j</bpmn:incoming>
-      <bpmn:incoming>Flow_1dfbgrs</bpmn:incoming>
+      <bpmn:incoming>Flow_0y039oi</bpmn:incoming>
+      <bpmn:incoming>Flow_0bou306</bpmn:incoming>
       <bpmn:outgoing>Flow_1gbv2sn</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:boundaryEvent id="Event_1kahazi" attachedToRef="EncryptAndStoreData">
-      <bpmn:outgoing>Flow_1dfbgrs</bpmn:outgoing>
-      <bpmn:errorEventDefinition id="ErrorEventDefinition_0nh3rkz" errorRef="Error_03kz9w1" camunda:errorCodeVariable="dataSendError" camunda:errorMessageVariable="dataSendErrorMessage" />
+    <bpmn:boundaryEvent id="encryptAndStoreError" attachedToRef="EncryptAndStoreData">
+      <bpmn:outgoing>Flow_0y039oi</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0y144h2" errorRef="Error_0p5odmb" camunda:errorCodeVariable="dataSendError" camunda:errorMessageVariable="dataSendErrorMessage" />
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="Flow_1dfbgrs" sourceRef="Event_1kahazi" targetRef="handleErrorSend" />
-    <bpmn:textAnnotation id="TextAnnotation_1xrax0i">
-      <bpmn:text>All Error Boundery Event Code empty on purpose</bpmn:text>
-    </bpmn:textAnnotation>
+    <bpmn:sequenceFlow id="Flow_0y039oi" sourceRef="encryptAndStoreError" targetRef="handleErrorSend" />
+    <bpmn:boundaryEvent id="Event_0gyavsc" attachedToRef="sendData">
+      <bpmn:outgoing>Flow_0bou306</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0a85ql6" errorRef="Error_169ndef" camunda:errorCodeVariable="dataSendError" camunda:errorMessageVariable="dataSendErrorMessage" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_0bou306" sourceRef="Event_0gyavsc" targetRef="handleErrorSend" />
   </bpmn:process>
   <bpmn:message id="Message_0mcjkpi" name="dataSendStart" />
   <bpmn:message id="Message_0j7x2tc" name="dataReceive" />
   <bpmn:message id="Message_0oqi2e7" name="dataStatus" />
-  <bpmn:error id="Error_03kz9w1" name="dataSendError" />
-  <bpmn:error id="Error_0p5odmb" name="encryptAndStoreError" errorCode="createAndStoreError" />
+  <bpmn:error id="Error_03kz9w1" name="sendErrorNotAllowed" errorCode="not-allowed" />
+  <bpmn:error id="Error_0p5odmb" name="encryptAndStoreError" errorCode="not-sent" />
+  <bpmn:error id="Error_0vbxh9d" name="Error_0gb9ljs" />
+  <bpmn:error id="Error_169ndef" name="sendErrorNotReachable" errorCode="not-reachable" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataSend">
-      <bpmndi:BPMNShape id="TextAnnotation_1xrax0i_di" bpmnElement="TextAnnotation_1xrax0i">
-        <dc:Bounds x="722" y="81" width="170" height="42" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Event_0kggab9_di" bpmnElement="DataSendMessageStartEvent">
         <dc:Bounds x="172" y="222" width="36" height="36" />
         <bpmndi:BPMNLabel>
@@ -164,11 +165,14 @@
       <bpmndi:BPMNShape id="Activity_014ar1l_di" bpmnElement="handleErrorSend">
         <dc:Bounds x="1035" y="90" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_055ncxa" bpmnElement="Event_1kahazi">
+      <bpmndi:BPMNShape id="Event_1gv1mfg_di" bpmnElement="sendError">
+        <dc:Bounds x="862" y="182" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1twgwrp_di" bpmnElement="encryptAndStoreError">
         <dc:Bounds x="702" y="182" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_1gv1mfg_di" bpmnElement="Event_1d8prc6">
-        <dc:Bounds x="862" y="182" width="36" height="36" />
+      <bpmndi:BPMNShape id="Event_171zd7c_di" bpmnElement="Event_0gyavsc">
+        <dc:Bounds x="822" y="182" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0yamo5r_di" bpmnElement="Flow_0yamo5r">
         <di:waypoint x="380" y="240" />
@@ -230,9 +234,14 @@
         <di:waypoint x="1200" y="130" />
         <di:waypoint x="1200" y="215" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_1dfbgrs_di" bpmnElement="Flow_1dfbgrs">
+      <bpmndi:BPMNEdge id="Flow_0y039oi_di" bpmnElement="Flow_0y039oi">
         <di:waypoint x="720" y="182" />
         <di:waypoint x="720" y="130" />
+        <di:waypoint x="1035" y="130" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0bou306_di" bpmnElement="Flow_0bou306">
+        <di:waypoint x="840" y="182" />
+        <di:waypoint x="840" y="130" />
         <di:waypoint x="1035" y="130" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
