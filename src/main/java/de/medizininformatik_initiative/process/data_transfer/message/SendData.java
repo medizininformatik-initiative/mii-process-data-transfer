@@ -91,12 +91,12 @@ public class SendData implements MessageSendTask
 				errorCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
 			}
 
-			logger.error("Send data failed with error code '{}' - {} - throwing error boundary event", errorCode,
+			logger.error("Send data-set failed with error code '{}' - {} - throwing error boundary event", errorCode,
 					exception.getMessage());
 			return errorCode;
 		};
 
-		Function<Exception, String> errorMessageTranslator = (exception) -> "Send data failed"
+		Function<Exception, String> errorMessageTranslator = (exception) -> "Send data-set failed"
 				+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage();
 
 		return new ExceptionToErrorBoundaryEventTranslationErrorHandler(errorCodeTranslator, errorMessageTranslator);
