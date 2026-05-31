@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.crypto.CryptoService;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
@@ -53,15 +54,18 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	private final String fhirStoreId;
 	private final boolean fhirBinaryStreamReadUseHapiBlobStorageOperation;
 	private final DataSetStatusGenerator statusGenerator;
+	private final CryptoService cryptoService;
 	private final KeyProvider keyProvider;
 	private final boolean dicEmailEnabled;
 
 	public EncryptAndStoreData(String fhirStoreId, boolean fhirBinaryStreamReadUseHapiBlobStorageOperation,
-			DataSetStatusGenerator statusGenerator, KeyProvider keyProvider, boolean dicEmailEnabled)
+			DataSetStatusGenerator statusGenerator, CryptoService cryptoService, KeyProvider keyProvider,
+			boolean dicEmailEnabled)
 	{
 		this.fhirStoreId = fhirStoreId;
 		this.fhirBinaryStreamReadUseHapiBlobStorageOperation = fhirBinaryStreamReadUseHapiBlobStorageOperation;
 		this.statusGenerator = statusGenerator;
+		this.cryptoService = cryptoService;
 		this.keyProvider = keyProvider;
 		this.dicEmailEnabled = dicEmailEnabled;
 	}
@@ -69,6 +73,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	@Override
 	public void afterPropertiesSet() throws Exception
 	{
+		Objects.requireNonNull(cryptoService, "cryptoService");
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
@@ -202,7 +207,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	{
 		try
 		{
-			return KeyProvider.from(binary.getContent());
+			return KeyProvider.forX25519From(binary.getContent());
 		}
 		catch (Exception exception)
 		{
@@ -332,7 +337,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 			InputStream stream = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId).readBinary(binaryId,
 					MediaType.valueOf(mimetype));
 
-			return api.getCryptoService().createRsaKem().encrypt(stream, publicKey);
+			return cryptoService.encrypt(stream, publicKey);
 		}
 		catch (Exception exception)
 		{
@@ -346,7 +351,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		try
 		{
 			byte[] toEncrypt = MimeTypeHelper.getData(api.getFhirContext(), resource);
-			byte[] encrypted = api.getCryptoService().createRsaKem().encrypt(toEncrypt, publicKey);
+			byte[] encrypted = cryptoService.encrypt(toEncrypt, publicKey);
 
 			return new Binary().setData(encrypted).setContentType(MimeTypeHelper.getMimeType(resource));
 		}

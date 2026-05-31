@@ -23,6 +23,7 @@ import de.medizininformatik_initiative.process.data_transfer.service.ReadData;
 import de.medizininformatik_initiative.process.data_transfer.service.SelectTargetDic;
 import de.medizininformatik_initiative.process.data_transfer.service.StoreReceipt;
 import de.medizininformatik_initiative.process.data_transfer.service.ValidateDataDic;
+import de.medizininformatik_initiative.processes.common.crypto.CryptoService;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
 import dev.dsf.bpe.v2.ProcessPluginApi;
@@ -76,14 +77,14 @@ public class TransferDataConfig
 	private boolean dmsEmailEnabled;
 
 	@ProcessDocumentation(required = true, processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS private-key as 4096 Bit RSA PEM encoded, not encrypted file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_private_key.pem")
-	@Value("${de.medizininformatik.initiative.dms.private.key:#{null}}")
-	private String dmsPrivateKeyFile;
+			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS private-key as x25519 EC PEM encoded, not encrypted file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_private_key_x25519.pem")
+	@Value("${de.medizininformatik.initiative.dms.private.key.x25519:#{null}}")
+	private String dmsPrivateKeyFileX25519;
 
 	@ProcessDocumentation(required = true, processNames = {
-			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS public-key as 4096 Bit RSA PEM encoded file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_public_key.pem")
-	@Value("${de.medizininformatik.initiative.dms.public.key:#{null}}")
-	private String dmsPublicKeyFile;
+			"medizininformatik-initiativede_dataReceive" }, description = "Location of the DMS public-key as x25519 EC PEM encoded file", recommendation = "Use docker secret file to configure", example = "/run/secrets/dms_public_key_x25519.pem")
+	@Value("${de.medizininformatik.initiative.dms.public.key.x25519:#{null}}")
+	private String dmsPublicKeyFileX25519;
 
 	@ProcessDocumentation(required = true, processNames = { "medizininformatik-initiativede_dataSend",
 			"medizininformatik-initiativede_dataReceive" }, description = "Adds additional allowed data-set senders to the authorization rules based on the `<consortium-identifier>|<role> definition", recommendation = "If this env variable is set, 'DE_MEDIZININFORMATIK_INITIATIVE_DATA_TRANSFER_PROCESS_AUTHORIZATION_ADDITIONALLY_ALLOWED_RECEIVERS' should be set as well", example = "nct.dkfz.de|DIC")
@@ -101,14 +102,21 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public KeyProvider keyProviderDic()
 	{
-		return KeyProvider.from(api);
+		return KeyProvider.forX25519From(api);
 	}
 
 	@Bean
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public KeyProvider keyProviderDms()
 	{
-		return KeyProvider.from(api, dmsPrivateKeyFile, dmsPublicKeyFile);
+		return KeyProvider.forX25519From(api, dmsPrivateKeyFileX25519, dmsPublicKeyFileX25519);
+	}
+
+	@Bean
+	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
+	public CryptoService cryptoService()
+	{
+		return CryptoService.x25519();
 	}
 
 	@Bean
@@ -154,7 +162,7 @@ public class TransferDataConfig
 	public EncryptAndStoreData encryptAndStoreData()
 	{
 		return new EncryptAndStoreData(fhirStoreIdDic, fhirBinaryStreamReadUseHapiBlobStorageOperation,
-				dataSetStatusGenerator(), keyProviderDic(), dicEmailEnabled);
+				dataSetStatusGenerator(), cryptoService(), keyProviderDic(), dicEmailEnabled);
 	}
 
 	@Bean
@@ -198,8 +206,8 @@ public class TransferDataConfig
 	@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 	public DecryptValidateAndInsertData decryptValidateAndInsertData()
 	{
-		return new DecryptValidateAndInsertData(fhirStoreIdDms, keyProviderDms(), dataSetStatusGenerator(),
-				dmsEmailEnabled);
+		return new DecryptValidateAndInsertData(fhirStoreIdDms, cryptoService(), keyProviderDms(),
+				dataSetStatusGenerator(), dmsEmailEnabled);
 	}
 
 	@Bean

@@ -28,6 +28,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.crypto.CryptoService;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
@@ -48,14 +49,16 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	private static final Logger logger = LoggerFactory.getLogger(DecryptValidateAndInsertData.class);
 
 	private final String fhirStoreId;
+	private final CryptoService cryptoService;
 	private final KeyProvider keyProvider;
 	private final DataSetStatusGenerator statusGenerator;
 	private final boolean dmseMailEnabled;
 
-	public DecryptValidateAndInsertData(String fhirStoreId, KeyProvider keyProvider,
+	public DecryptValidateAndInsertData(String fhirStoreId, CryptoService cryptoService, KeyProvider keyProvider,
 			DataSetStatusGenerator statusGenerator, boolean dmseMailEnabled)
 	{
 		this.fhirStoreId = fhirStoreId;
+		this.cryptoService = cryptoService;
 		this.keyProvider = keyProvider;
 		this.statusGenerator = statusGenerator;
 		this.dmseMailEnabled = dmseMailEnabled;
@@ -64,6 +67,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	@Override
 	public void afterPropertiesSet() throws Exception
 	{
+		Objects.requireNonNull(cryptoService, "cryptoService");
 		Objects.requireNonNull(keyProvider, "keyProvider");
 		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
@@ -178,7 +182,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 							DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN))
 					.readBinary(url.getIdPart(), MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
 
-			return api.getCryptoService().createRsaKem().decrypt(inputStream, privateKey);
+			return cryptoService.decrypt(inputStream, privateKey);
 		}
 		catch (Exception exception)
 		{
@@ -191,7 +195,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	{
 		try
 		{
-			byte[] decrypted = api.getCryptoService().createRsaKem().decrypt(binary.getData(), privateKey);
+			byte[] decrypted = cryptoService.decrypt(binary.getData(), privateKey);
 
 			String mimeType = getMimeType(binary);
 			return new Binary().setData(decrypted).setContentType(mimeType);
