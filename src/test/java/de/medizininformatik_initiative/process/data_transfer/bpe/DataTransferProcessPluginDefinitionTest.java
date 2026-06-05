@@ -22,11 +22,11 @@ public class DataTransferProcessPluginDefinitionTest
 
 		var receive = resourcesByProcessId.get(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE);
 		assertNotNull(receive);
-		assertEquals(10, receive.stream().filter(this::exists).count());
+		assertEquals(9, receive.stream().filter(this::exists).count());
 
 		var send = resourcesByProcessId.get(ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND);
 		assertNotNull(send);
-		assertEquals(10, send.stream().filter(this::exists).count());
+		assertEquals(11, send.stream().filter(this::exists).count());
 	}
 
 	private boolean exists(String file)

@@ -42,9 +42,9 @@ public class TaskProfileTest
 			List.of("dsf-task-2.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
 					"task-data-send.xml", "task-data-status.xml"),
 			List.of("dsf-read-access-tag-2.0.0.xml", "dsf-bpmn-message-2.0.0.xml", "data-transfer.xml",
-					"mii-cryptography.xml", "mii-data-set-status.xml"),
+					"mii-data-set-status.xml"),
 			List.of("dsf-read-access-tag-2.0.0.xml", "dsf-bpmn-message-2.0.0.xml", "data-transfer.xml",
-					"mii-cryptography.xml", "mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
+					"mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
 
 	private final ResourceValidator resourceValidator = new ResourceValidatorImpl(validationRule.getFhirContext(),
 			validationRule.getValidationSupport());

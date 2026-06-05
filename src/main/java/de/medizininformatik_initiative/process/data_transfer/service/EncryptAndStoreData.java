@@ -95,7 +95,9 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 				dmsIdentifier, projectIdentifier, api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task));
 
 		ListResource transferBinaryReferenceList = new ListResource();
-		PublicKey publicKey = readPublicKey(api, consortiumIdentifier, dmsIdentifier, projectIdentifier, task);
+		String receiverKeyId = ConstantsBase.NAMINGSYSTEM_MII_RECEIVER_KEY_ID_VALUE_DEFAULT_KEY_X25519;
+		PublicKey publicKey = readPublicKey(api, consortiumIdentifier, dmsIdentifier, projectIdentifier, receiverKeyId,
+				task);
 
 		try
 		{
@@ -105,7 +107,7 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 					getDsfFhirServerAbsoluteId(api, transferDocumentReference.getIdElement()));
 
 			encryptAndStoreData(api, transferDocumentReference, transferBinaryReferenceList, resources, publicKey,
-					variables);
+					receiverKeyId, variables);
 			// references to encrypted and stored data-sets saved to variables directly
 			// after processing each single data-set
 
@@ -141,10 +143,10 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 	}
 
 	private PublicKey readPublicKey(ProcessPluginApi api, String consortiumIdentifier, String dmsIdentifier,
-			String projectIdentifier, Task task)
+			String projectIdentifier, String receiverKeyId, Task task)
 	{
 		String url = getEndpointUrl(api, consortiumIdentifier, dmsIdentifier);
-		Optional<Bundle> publicKeyBundleOptional = keyProvider.readPublicKeyIfExists(url);
+		Optional<Bundle> publicKeyBundleOptional = keyProvider.readPublicKeyIfExists(receiverKeyId, url);
 
 		if (publicKeyBundleOptional.isEmpty())
 			throw new IllegalStateException("Could not find PublicKey Bundle of DMS '" + dmsIdentifier + "'");
@@ -283,61 +285,66 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 
 	private void encryptAndStoreData(ProcessPluginApi api, DocumentReference documentReference,
 			ListResource transferBinaryReferenceList, List<Resource> resources, PublicKey publicKey,
-			Variables variables)
+			String receiverKeyId, Variables variables)
 	{
 		resources.forEach(r -> doEncryptAndStoreData(api, documentReference, transferBinaryReferenceList, r, publicKey,
-				variables));
+				receiverKeyId, variables));
 	}
 
 	private void doEncryptAndStoreData(ProcessPluginApi api, DocumentReference documentReference,
-			ListResource transferBinaryReferenceList, Resource resource, PublicKey publicKey, Variables variables)
+			ListResource transferBinaryReferenceList, Resource resource, PublicKey publicKey, String receiverKeyId,
+			Variables variables)
 	{
 		String securityContext = getDsfFhirServerAbsoluteId(api, documentReference.getIdElement());
 
 		if (resource instanceof ListResource listResource)
-			encryptAndStoreDataStreams(api, listResource, transferBinaryReferenceList, publicKey, securityContext,
-					variables);
+			encryptAndStoreDataStreams(api, listResource, transferBinaryReferenceList, publicKey, receiverKeyId,
+					securityContext, variables);
 		else
-			encryptAndStoreDataResource(api, resource, transferBinaryReferenceList, publicKey, securityContext,
-					variables);
+			encryptAndStoreDataResource(api, resource, transferBinaryReferenceList, publicKey, receiverKeyId,
+					securityContext, variables);
 	}
 
 	private void encryptAndStoreDataStreams(ProcessPluginApi api, ListResource listResource,
-			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String receiverKeyId, String securityContext,
+			Variables variables)
 	{
 		listResource.getEntry().stream().filter(ListResource.ListEntryComponent::hasItem)
 				.filter(e -> e.hasExtension(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE))
-				.forEach(e -> encryptAndStoreDataStream(api, e, transferBinaryReferenceList, publicKey, securityContext,
-						variables));
+				.forEach(e -> encryptAndStoreDataStream(api, e, transferBinaryReferenceList, publicKey, receiverKeyId,
+						securityContext, variables));
 	}
 
 	private void encryptAndStoreDataStream(ProcessPluginApi api, ListResource.ListEntryComponent item,
-			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String receiverKeyId, String securityContext,
+			Variables variables)
 	{
 		String binaryId = item.getItem().getReferenceElement().getIdPart();
 		if (fhirBinaryStreamReadUseHapiBlobStorageOperation)
 			binaryId += "/$binary-access-read";
 		String mimeType = item.getExtensionString(ConstantsDataTransfer.EXTENSION_LIST_ENTRY_MIMETYPE);
 
-		InputStream stream = encryptDataStream(api, binaryId, mimeType, publicKey);
+		InputStream stream = encryptDataStream(api, binaryId, mimeType, publicKey, receiverKeyId);
 		storeBinaryStream(api, stream, mimeType, securityContext, transferBinaryReferenceList, variables);
 	}
 
 	private void encryptAndStoreDataResource(ProcessPluginApi api, Resource resource,
-			ListResource transferBinaryReferenceList, PublicKey publicKey, String securityContext, Variables variables)
+			ListResource transferBinaryReferenceList, PublicKey publicKey, String receiverKeyId, String securityContext,
+			Variables variables)
 	{
-		Binary binaryResource = encryptDataResource(api, resource, publicKey);
+		Binary binaryResource = encryptDataResource(api, resource, publicKey, receiverKeyId);
 		storeBinaryResource(api, binaryResource, securityContext, transferBinaryReferenceList, variables);
 	}
 
-	private InputStream encryptDataStream(ProcessPluginApi api, String binaryId, String mimetype, PublicKey publicKey)
+	private InputStream encryptDataStream(ProcessPluginApi api, String binaryId, String mimetype, PublicKey publicKey,
+			String receiverKeyId)
 	{
 		try
 		{
 			InputStream stream = getDsfClientForFhirStore(api.getDsfClientProvider(), fhirStoreId).readBinary(binaryId,
 					MediaType.valueOf(mimetype));
 
-			return cryptoService.encrypt(stream, publicKey);
+			return cryptoService.encrypt(stream, publicKey, receiverKeyId);
 		}
 		catch (Exception exception)
 		{
@@ -346,12 +353,13 @@ public class EncryptAndStoreData implements ServiceTask, InitializingBean
 		}
 	}
 
-	private Binary encryptDataResource(ProcessPluginApi api, Resource resource, PublicKey publicKey)
+	private Binary encryptDataResource(ProcessPluginApi api, Resource resource, PublicKey publicKey,
+			String receiverKeyId)
 	{
 		try
 		{
 			byte[] toEncrypt = MimeTypeHelper.getData(api.getFhirContext(), resource);
-			byte[] encrypted = cryptoService.encrypt(toEncrypt, publicKey);
+			byte[] encrypted = cryptoService.encrypt(toEncrypt, publicKey, receiverKeyId);
 
 			return new Binary().setData(encrypted).setContentType(MimeTypeHelper.getMimeType(resource));
 		}

@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import de.hsheilbronn.mi.utils.crypto.hpke.ReceiverPrivateKeyProvider;
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.crypto.CryptoService;
 import de.medizininformatik_initiative.processes.common.crypto.KeyProvider;
@@ -165,7 +166,7 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 	private ListResource.ListEntryComponent decryptValidateAndInsertDataResource(ProcessPluginApi api, Binary resource,
 			PrivateKey privateKey)
 	{
-		Binary binary = decryptDataResource(api, resource, privateKey);
+		Binary binary = decryptDataResource(resource, privateKey);
 		validateDataResource(api, binary);
 		return insertDataResource(api, binary);
 	}
@@ -182,7 +183,8 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 							DelayStrategy.constant(ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN))
 					.readBinary(url.getIdPart(), MediaType.valueOf(MediaType.APPLICATION_OCTET_STREAM));
 
-			return cryptoService.decrypt(inputStream, privateKey);
+			ReceiverPrivateKeyProvider privateKeyProvider = _ -> privateKey;
+			return cryptoService.decrypt(inputStream, privateKeyProvider);
 		}
 		catch (Exception exception)
 		{
@@ -191,11 +193,12 @@ public class DecryptValidateAndInsertData implements ServiceTask, InitializingBe
 		}
 	}
 
-	private Binary decryptDataResource(ProcessPluginApi api, Binary binary, PrivateKey privateKey)
+	private Binary decryptDataResource(Binary binary, PrivateKey privateKey)
 	{
 		try
 		{
-			byte[] decrypted = cryptoService.decrypt(binary.getData(), privateKey);
+			ReceiverPrivateKeyProvider privateKeyProvider = _ -> privateKey;
+			byte[] decrypted = cryptoService.decrypt(binary.getData(), privateKeyProvider);
 
 			String mimeType = getMimeType(binary);
 			return new Binary().setData(decrypted).setContentType(mimeType);
