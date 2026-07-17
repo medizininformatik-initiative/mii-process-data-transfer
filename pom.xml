@@ -13,7 +13,7 @@
 		<maven.compiler.release>25</maven.compiler.release>
 
 		<dsf.version>2.1.0</dsf.version>
-		<testSetup.location>../mii-processes-test-setup</testSetup.location>
+		<miiDevSetup.location>../mii-processes-test-setup</miiDevSetup.location>
 	</properties>
 
 	<name>mii-process-data-transfer</name>
@@ -319,7 +319,7 @@
 			</build>
 		</profile>
 		<profile>
-			<id>copy-to-test-setup</id>
+			<id>copy-to-mii-dev-setup</id>
 
 			<build>
 				<plugins>
@@ -341,7 +341,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dic1/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dic1/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 							<execution>
@@ -358,7 +358,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dic2/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dic2/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 							<execution>
@@ -375,7 +375,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dms/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dms/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 						</executions>
@@ -386,21 +386,21 @@
 						<configuration>
 							<filesets>
 								<fileset>
-									<directory>${testSetup.location}/docker/dic1/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dic1/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
-									<directory>${testSetup.location}/docker/dic2/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dic2/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
-									<directory>${testSetup.location}/docker/dms/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dms/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>
