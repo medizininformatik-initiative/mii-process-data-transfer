@@ -16,11 +16,11 @@
       <bpmn:outgoing>Flow_1c3t0x1</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_1c3t0x1" sourceRef="decryptValidateAndInsertData" targetRef="Gateway_1u8di90" />
-    <bpmn:boundaryEvent id="Event_0k465ce" attachedToRef="DownloadDataFromDic">
+    <bpmn:boundaryEvent id="downlaodError" attachedToRef="DownloadDataFromDic">
       <bpmn:outgoing>Flow_1iwqqfr</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_0pexd3k" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
-    <bpmn:boundaryEvent id="Event_0w8rnob" attachedToRef="decryptValidateAndInsertData">
+    <bpmn:boundaryEvent id="decryptValidateAndInsertError" attachedToRef="decryptValidateAndInsertData">
       <bpmn:outgoing>Flow_1a3apuy</bpmn:outgoing>
       <bpmn:errorEventDefinition id="ErrorEventDefinition_1e7fqdh" errorRef="Error_1d4mhvf" camunda:errorCodeVariable="dataReceiveError" camunda:errorMessageVariable="dataReceiveErrorMessage" />
     </bpmn:boundaryEvent>
@@ -34,7 +34,7 @@
       <bpmn:incoming>Flow_1p2po17</bpmn:incoming>
       <bpmn:outgoing>Flow_0sa0z7s</bpmn:outgoing>
     </bpmn:serviceTask>
-    <bpmn:sequenceFlow id="Flow_1iwqqfr" sourceRef="Event_0k465ce" targetRef="handleErrorReceive" />
+    <bpmn:sequenceFlow id="Flow_1iwqqfr" sourceRef="downlaodError" targetRef="handleErrorReceive" />
     <bpmn:endEvent id="sendReceipt" name="send receipt">
       <bpmn:incoming>Flow_0sa0z7s</bpmn:incoming>
       <bpmn:messageEventDefinition id="MessageEventDefinition_0upvsfq" camunda:class="de.medizininformatik_initiative.process.data_transfer.message.SendReceipt">
@@ -58,10 +58,10 @@
       <bpmn:outgoing>Flow_1ynmh47</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:sequenceFlow id="Flow_1ynmh47" sourceRef="handleErrorReceive" targetRef="Gateway_1u8di90" />
-    <bpmn:sequenceFlow id="Flow_1a3apuy" sourceRef="Event_0w8rnob" targetRef="handleErrorReceive" />
+    <bpmn:sequenceFlow id="Flow_1a3apuy" sourceRef="decryptValidateAndInsertError" targetRef="handleErrorReceive" />
   </bpmn:process>
   <bpmn:message id="Message_157qpi8" name="dataSend" />
-  <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" errorCode="dataReceiveError" />
+  <bpmn:error id="Error_1d4mhvf" name="dataReceiveError" errorCode="receive-error" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="medizininformatik-initiativede_dataReceive">
       <bpmndi:BPMNShape id="Event_0kx3ho7_di" bpmnElement="DataReceiveMessageStartEvent">
@@ -93,10 +93,10 @@
       <bpmndi:BPMNShape id="Activity_0thcs40_di" bpmnElement="handleErrorReceive">
         <dc:Bounds x="620" y="180" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BPMNShape_180rat1" bpmnElement="Event_0w8rnob">
+      <bpmndi:BPMNShape id="BPMNShape_180rat1" bpmnElement="decryptValidateAndInsertError">
         <dc:Bounds x="522" y="139" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_03tuscl_di" bpmnElement="Event_0k465ce">
+      <bpmndi:BPMNShape id="Event_03tuscl_di" bpmnElement="downlaodError">
         <dc:Bounds x="372" y="139" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_1gyqorb_di" bpmnElement="Flow_1gyqorb">

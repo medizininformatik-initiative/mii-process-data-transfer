@@ -24,8 +24,8 @@ import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransf
 import de.medizininformatik_initiative.process.data_transfer.DataTransferProcessPluginDefinition;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
 import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import dev.dsf.bpe.v1.constants.CodeSystems;
-import dev.dsf.bpe.v1.constants.NamingSystems;
+import dev.dsf.bpe.v2.constants.CodeSystems;
+import dev.dsf.bpe.v2.constants.NamingSystems;
 import dev.dsf.fhir.validation.ResourceValidator;
 import dev.dsf.fhir.validation.ResourceValidatorImpl;
 import dev.dsf.fhir.validation.ValidationSupportRule;
@@ -33,17 +33,18 @@ import dev.dsf.fhir.validation.ValidationSupportRule;
 public class TaskProfileTest
 {
 	private static final Logger logger = LoggerFactory.getLogger(TaskProfileTest.class);
-	private static final DataTransferProcessPluginDefinition def = new DataTransferProcessPluginDefinition();
+
+	private static final DataTransferProcessPluginDefinition definition = new DataTransferProcessPluginDefinition();
 
 	@ClassRule
-	public static final ValidationSupportRule validationRule = new ValidationSupportRule(def.getResourceVersion(),
-			def.getResourceReleaseDate(),
-			List.of("dsf-task-base-1.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
+	public static final ValidationSupportRule validationRule = new ValidationSupportRule(
+			definition.getResourceVersion(), definition.getReleaseDate(),
+			List.of("dsf-task-2.0.0.xml", "extension-data-set-status-error.xml", "task-data-send-start.xml",
 					"task-data-send.xml", "task-data-status.xml"),
-			List.of("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
-					"mii-cryptography.xml", "mii-data-set-status.xml"),
-			List.of("dsf-read-access-tag-1.0.0.xml", "dsf-bpmn-message-1.0.0.xml", "data-transfer.xml",
-					"mii-cryptography.xml", "mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
+			List.of("dsf-read-access-tag-2.0.0.xml", "dsf-bpmn-message-2.0.0.xml", "data-transfer.xml",
+					"mii-data-set-status.xml"),
+			List.of("dsf-read-access-tag-2.0.0.xml", "dsf-bpmn-message-2.0.0.xml", "data-transfer.xml",
+					"mii-data-set-status-receive.xml", "mii-data-set-status-send.xml"));
 
 	private final ResourceValidator resourceValidator = new ResourceValidatorImpl(validationRule.getFhirContext(),
 			validationRule.getValidationSupport());
@@ -67,6 +68,7 @@ public class TaskProfileTest
 		task.addInput().setValue(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
 				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM)))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -80,9 +82,9 @@ public class TaskProfileTest
 	public void testTaskStartDataSendValidWithReportStatusErrorOutput()
 	{
 		Task task = createValidTaskDataSendStart();
-		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
+		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(definition.getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, definition.getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -95,9 +97,10 @@ public class TaskProfileTest
 	private Task createValidTaskDataSendStart()
 	{
 		Task task = new Task();
-		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START + "|" + def.getResourceVersion());
+		task.getMeta()
+				.addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START + "|" + definition.getResourceVersion());
 		task.setInstantiatesCanonical(
-				ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_PROCESS_URI + "|" + def.getResourceVersion());
+				ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_PROCESS_URI + "|" + definition.getResourceVersion());
 		task.setStatus(TaskStatus.REQUESTED);
 		task.setIntent(TaskIntent.ORDER);
 		task.setAuthoredOn(new Date());
@@ -107,16 +110,18 @@ public class TaskProfileTest
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue("Test_DIC"));
 		task.addInput().setValue(new StringType(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME))
 				.getType().addCoding(CodeSystems.BpmnMessage.messageName());
+
 		task.addInput()
 				.setValue(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue("Test_DMS"))
 						.setType(ResourceType.Organization.name()))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DMS_IDENTIFIER);
-
 		task.addInput()
 				.setValue(new Identifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
 						.setValue("Test_PROJECT"))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
 
 		return task;
@@ -138,9 +143,9 @@ public class TaskProfileTest
 	public void testTaskDataSendValidWithReportStatusOutput()
 	{
 		Task task = createValidTaskDataSend();
-		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
+		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(definition.getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_OK,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, definition.getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -154,9 +159,9 @@ public class TaskProfileTest
 	public void testTaskDataSendValidWithReportStatusErrorOutput()
 	{
 		Task task = createValidTaskDataSend();
-		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(
+		task.addOutput(new DataSetStatusGenerator().createDataSetStatusOutput(definition.getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIVE_ERROR,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, definition.getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -169,9 +174,9 @@ public class TaskProfileTest
 	private Task createValidTaskDataSend()
 	{
 		Task task = new Task();
-		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND + "|" + def.getResourceVersion());
+		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_SEND + "|" + definition.getResourceVersion());
 		task.setInstantiatesCanonical(
-				ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_PROCESS_URI + "|" + def.getResourceVersion());
+				ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_PROCESS_URI + "|" + definition.getResourceVersion());
 		task.setStatus(TaskStatus.REQUESTED);
 		task.setIntent(TaskIntent.ORDER);
 		task.setAuthoredOn(new Date());
@@ -185,17 +190,20 @@ public class TaskProfileTest
 		task.addInput().setValue(new Reference().setIdentifier(NamingSystems.OrganizationIdentifier.withValue(
 				ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM)))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
 		task.addInput()
 				.setValue(new Identifier().setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER)
 						.setValue("Test_PROJECT"))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
 		task.addInput()
 				.setValue(new Reference()
 						.setReference("https://dsf-dic.de/fhir/DocumentReference/" + UUID.randomUUID().toString())
 						.setType(ResourceType.DocumentReference.name()))
 				.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(definition.getResourceVersion())
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
 		return task;
 	}
@@ -204,9 +212,9 @@ public class TaskProfileTest
 	public void testTaskDataStatusValidWithResponseInput()
 	{
 		Task task = createValidTaskDataStatus();
-		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(
+		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(definition.getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_OK,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, definition.getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS));
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -220,9 +228,9 @@ public class TaskProfileTest
 	public void testTaskDataStatusValidWithResponseInputError()
 	{
 		Task task = createValidTaskDataStatus();
-		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(
+		task.addInput(new DataSetStatusGenerator().createDataSetStatusInput(definition.getResourceVersion(),
 				ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_RECEIPT_ERROR,
-				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER, definition.getResourceVersion(),
 				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "some error message"));
 
 		ValidationResult result = resourceValidator.validate(task);
@@ -235,9 +243,10 @@ public class TaskProfileTest
 	private Task createValidTaskDataStatus()
 	{
 		Task task = new Task();
-		task.getMeta().addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS + "|" + def.getResourceVersion());
+		task.getMeta()
+				.addProfile(ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS + "|" + definition.getResourceVersion());
 		task.setInstantiatesCanonical(
-				ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_PROCESS_URI + "|" + def.getResourceVersion());
+				ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_PROCESS_URI + "|" + definition.getResourceVersion());
 		task.setStatus(TaskStatus.REQUESTED);
 		task.setIntent(TaskIntent.ORDER);
 		task.setAuthoredOn(new Date());

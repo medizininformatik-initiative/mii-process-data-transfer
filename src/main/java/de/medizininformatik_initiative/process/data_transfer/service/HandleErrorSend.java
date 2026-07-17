@@ -1,37 +1,61 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
+import java.util.Objects;
+
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Task;
+import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.variables.Variables;
+import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.variables.Variables;
 
-public class HandleErrorSend extends AbstractServiceDelegate
+public class HandleErrorSend implements ServiceTask, InitializingBean
 {
-	public HandleErrorSend(ProcessPluginApi api)
+	private final DataSetStatusGenerator statusGenerator;
+	private final boolean dicEmailEnabled;
+
+	public HandleErrorSend(DataSetStatusGenerator statusGenerator, boolean dicEmailEnabled)
 	{
-		super(api);
+		this.statusGenerator = statusGenerator;
+		this.dicEmailEnabled = dicEmailEnabled;
 	}
 
 	@Override
-	protected void doExecute(DelegateExecution delegateExecution, Variables variables)
+	public void afterPropertiesSet()
 	{
-		Task task = variables.getStartTask();
-
-		if (Task.TaskStatus.FAILED.equals(task.getStatus()))
-			sendMail(task, variables);
+		Objects.requireNonNull(statusGenerator, "statusGenerator");
 	}
 
-	private void sendMail(Task task, Variables variables)
+	@Override
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
+		Task task = variables.getStartTask();
+		String errorCode = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR);
+		String errorMessage = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE);
+
+		task.setStatus(Task.TaskStatus.FAILED);
+		task.addOutput(statusGenerator.createDataSetStatusOutput(api.getProcessPluginDefinition().getResourceVersion(),
+				errorCode, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
+				api.getProcessPluginDefinition().getResourceVersion(),
+				ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, errorMessage));
+		variables.updateTask(task);
+
+		if (dicEmailEnabled)
+			sendMail(api, variables, task, errorMessage);
+	}
+
+	private void sendMail(ProcessPluginApi api, Variables variables, Task task, String error)
+	{
+		String consortiumIdentifier = variables
+				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		String dmsIdentifier = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER);
 		String projectIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER);
-		String error = variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR_MESSAGE);
 
 		String statusCode = task.getOutput().stream().filter(o -> o.getValue() instanceof Coding)
 				.map(o -> (Coding) o.getValue())
@@ -39,9 +63,9 @@ public class HandleErrorSend extends AbstractServiceDelegate
 				.findFirst().orElse("unknown");
 
 		String subject = "Error in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "'";
-		String message = "Could not send DocumentReference with attachments in process '"
-				+ ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND + "' for Task with id '" + task.getId()
-				+ "' to DMS with identifier '" + dmsIdentifier + "' for project-identifier '" + projectIdentifier
+		String message = "Could not provide data-set in process '" + ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND
+				+ "' and Task '" + api.getTaskHelper().getLocalVersionlessAbsoluteUrl(task) + "' for DMS '"
+				+ consortiumIdentifier + "|" + dmsIdentifier + "' regarding project-identifier '" + projectIdentifier
 				+ "':\n" + "- status code: " + statusCode + "\n" + "- error: " + (error == null ? "none" : error);
 
 		api.getMailService().send(subject, message);

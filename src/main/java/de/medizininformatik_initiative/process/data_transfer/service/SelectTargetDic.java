@@ -1,6 +1,5 @@
 package de.medizininformatik_initiative.process.data_transfer.service;
 
-import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Endpoint;
 import org.hl7.fhir.r4.model.Identifier;
@@ -8,29 +7,28 @@ import org.hl7.fhir.r4.model.Task;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractServiceDelegate;
-import dev.dsf.bpe.v1.constants.NamingSystems;
-import dev.dsf.bpe.v1.variables.Target;
-import dev.dsf.bpe.v1.variables.Variables;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.ServiceTask;
+import dev.dsf.bpe.v2.constants.NamingSystems;
+import dev.dsf.bpe.v2.variables.Target;
+import dev.dsf.bpe.v2.variables.Variables;
 
-public class SelectTargetDic extends AbstractServiceDelegate
+public class SelectTargetDic implements ServiceTask
 {
-	public SelectTargetDic(ProcessPluginApi api)
+	public SelectTargetDic()
 	{
-		super(api);
 	}
 
 	@Override
-	protected void doExecute(DelegateExecution execution, Variables variables)
+	public void execute(ProcessPluginApi api, Variables variables)
 	{
 		Task task = variables.getStartTask();
 		String consortiumIdentifier = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_CONSORTIUM_IDENTIFIER);
 		Identifier dicIdentifier = getDicOrganizationIdentifier(task);
-		Endpoint dicEndpoint = getDicEndpoint(consortiumIdentifier, dicIdentifier);
-		Target dicTarget = createTarget(variables, dicIdentifier, dicEndpoint);
+		Endpoint dicEndpoint = getDicEndpoint(api, consortiumIdentifier, dicIdentifier);
 
+		Target dicTarget = createTarget(variables, dicIdentifier, dicEndpoint);
 		variables.setTarget(dicTarget);
 	}
 
@@ -39,7 +37,7 @@ public class SelectTargetDic extends AbstractServiceDelegate
 		return task.getRequester().getIdentifier();
 	}
 
-	private Endpoint getDicEndpoint(String consortiumIdentifier, Identifier dicIdentifier)
+	private Endpoint getDicEndpoint(ProcessPluginApi api, String consortiumIdentifier, Identifier dicIdentifier)
 	{
 		Identifier parentIdentifier = NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier);
 		Coding role = new Coding().setSystem(ConstantsBase.CODESYSTEM_DSF_ORGANIZATION_ROLE)

@@ -6,14 +6,14 @@
 
 	<groupId>de.medizininformatik-initiative</groupId>
 	<artifactId>mii-process-data-transfer</artifactId>
-	<version>1.1.1.0-SNAPSHOT</version>
+	<version>2.0.0.0-SNAPSHOT</version>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.release>17</maven.compiler.release>
+		<maven.compiler.release>25</maven.compiler.release>
 
-		<dsf.version>1.8.0</dsf.version>
-		<testSetup.location>../mii-processes-test-setup</testSetup.location>
+		<dsf.version>2.1.0</dsf.version>
+		<miiDevSetup.location>../mii-processes-dev-setup</miiDevSetup.location>
 	</properties>
 
 	<name>mii-process-data-transfer</name>
@@ -37,31 +37,29 @@
 	<dependencies>
 		<dependency>
 			<groupId>dev.dsf</groupId>
-			<artifactId>dsf-bpe-process-api-v1</artifactId>
+			<artifactId>dsf-bpe-process-api-v2</artifactId>
 			<version>${dsf.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>de.medizininformatik-initiative</groupId>
 			<artifactId>mii-processes-common</artifactId>
-			<version>1.1.0.1</version>
+			<version>2.0.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>de.hs-heilbronn.mi</groupId>
+			<artifactId>crypto-utils</artifactId>
+			<version>6.1.0</version>
 		</dependency>
 
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>2.0.17</version>
+			<version>2.0.18</version>
 			<scope>provided</scope>
 		</dependency>
 
 		<!-- testing -->
-		<dependency>
-			<groupId>dev.dsf</groupId>
-			<artifactId>dsf-bpe-process-api-v1</artifactId>
-			<version>${dsf.version}</version>
-			<scope>test</scope>
-			<type>test-jar</type>
-		</dependency>
 		<dependency>
 			<groupId>dev.dsf</groupId>
 			<artifactId>dsf-fhir-validation</artifactId>
@@ -81,17 +79,17 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.14.0</version>
+				<version>3.15.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.5.3</version>
+				<version>3.5.5</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
-				<version>3.4.2</version>
+				<version>3.5.0</version>
 				<configuration>
 					<archive>
 						<manifest>
@@ -108,7 +106,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.6.0</version>
+				<version>3.6.2</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -119,11 +117,21 @@
 							<artifactSet>
 								<includes>
 									<include>de.medizininformatik-initiative:mii-processes-common</include>
+									<include>de.hs-heilbronn.mi:crypto-utils</include>
 								</includes>
 							</artifactSet>
 							<filters>
 								<filter>
 									<artifact>de.medizininformatik-initiative:mii-processes-common</artifact>
+									<excludes>
+										<exclude>META-INF/*.MF</exclude>
+									</excludes>
+								</filter>
+								<filter>
+									<artifact>de.hs-heilbronn.mi:crypto-utils</artifact>
+									<includes>
+										<include>de/hsheilbronn/mi/utils/crypto/hpke/**</include>
+									</includes>
 									<excludes>
 										<exclude>META-INF/*.MF</exclude>
 									</excludes>
@@ -136,7 +144,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
-				<version>3.8.1</version>
+				<version>3.10.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -146,8 +154,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>buildnumber-maven-plugin</artifactId>
-				<!-- 3.1.0 not working, no git commit hash as buildnumber -->
-				<version>1.4</version>
+				<version>3.3.0</version>
 				<executions>
 					<execution>
 						<phase>validate</phase>
@@ -164,7 +171,7 @@
 			<plugin>
 				<groupId>net.revelc.code.formatter</groupId>
 				<artifactId>formatter-maven-plugin</artifactId>
-				<version>2.27.0</version>
+				<version>2.29.0</version>
 				<configuration>
 					<configFile>eclipse-formatter-config.xml</configFile>
 				</configuration>
@@ -172,28 +179,28 @@
 			<plugin>
 				<groupId>net.revelc.code</groupId>
 				<artifactId>impsort-maven-plugin</artifactId>
-				<version>1.12.0</version>
+				<version>1.13.0</version>
 				<configuration>
-					<compliance>17</compliance>
+					<compliance>25</compliance>
 					<groups>java.,javax.,org.,com.</groups>
 					<staticGroups>java,*</staticGroups>
 				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>dev.dsf</groupId>
-				<artifactId>dsf-tools-documentation-generator</artifactId>
+				<artifactId>dsf-maven-plugin</artifactId>
 				<version>${dsf.version}</version>
 				<executions>
 					<execution>
 						<goals>
-							<goal>generate</goal>
+							<goal>generate-config-doc</goal>
 						</goals>
 					</execution>
 				</executions>
 				<configuration>
-					<workingPackages>
-						<workingPackage>de.medizininformatik_initiative.process.data_transfer</workingPackage>
-					</workingPackages>
+					<configDocPackages>
+						<configDocPackage>de.medizininformatik_initiative.process.data_transfer.spring.config</configDocPackage>
+					</configDocPackages>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -209,12 +216,12 @@
 			<plugin>
 				<groupId>com.github.spotbugs</groupId>
 				<artifactId>spotbugs-maven-plugin</artifactId>
-				<version>4.9.3.2</version>
+				<version>4.9.8.3</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-pmd-plugin</artifactId>
-				<version>3.27.0</version>
+				<version>3.28.0</version>
 			</plugin>
 		</plugins>
 	</build>
@@ -312,7 +319,7 @@
 			</build>
 		</profile>
 		<profile>
-			<id>copy-to-test-setup</id>
+			<id>copy-to-mii-dev-setup</id>
 
 			<build>
 				<plugins>
@@ -334,7 +341,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dic1/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dic1/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 							<execution>
@@ -351,7 +358,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dic2/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dic2/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 							<execution>
@@ -368,7 +375,7 @@
 											<version>${project.version}</version>
 										</artifactItem>
 									</artifactItems>
-									<outputDirectory>${testSetup.location}/docker/dms/bpe/process</outputDirectory>
+									<outputDirectory>${miiDevSetup.location}/docker/dms/bpe/process</outputDirectory>
 								</configuration>
 							</execution>
 						</executions>
@@ -379,21 +386,21 @@
 						<configuration>
 							<filesets>
 								<fileset>
-									<directory>${testSetup.location}/docker/dic1/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dic1/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
-									<directory>${testSetup.location}/docker/dic2/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dic2/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>
 									<followSymlinks>false</followSymlinks>
 								</fileset>
 								<fileset>
-									<directory>${testSetup.location}/docker/dms/bpe/process</directory>
+									<directory>${miiDevSetup.location}/docker/dms/bpe/process</directory>
 									<includes>
 										<include>${project.artifactId}-*.jar</include>
 									</includes>

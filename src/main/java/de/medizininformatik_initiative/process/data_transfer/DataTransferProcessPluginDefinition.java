@@ -4,14 +4,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import de.medizininformatik_initiative.process.data_transfer.spring.config.DicFhirClientConfig;
-import de.medizininformatik_initiative.process.data_transfer.spring.config.DmsFhirClientConfig;
 import de.medizininformatik_initiative.process.data_transfer.spring.config.TransferDataConfig;
-import dev.dsf.bpe.v1.ProcessPluginDefinition;
+import dev.dsf.bpe.v2.ProcessPluginDefinition;
 
 public class DataTransferProcessPluginDefinition implements ProcessPluginDefinition
 {
-	public static final String VERSION = "1.1.1.0";
+	public static final String VERSION = "2.0.0.0";
 	public static final LocalDate RELEASE_DATE = LocalDate.of(2025, 9, 26);
 
 	@Override
@@ -41,7 +39,7 @@ public class DataTransferProcessPluginDefinition implements ProcessPluginDefinit
 	@Override
 	public List<Class<?>> getSpringConfigurations()
 	{
-		return List.of(TransferDataConfig.class, DicFhirClientConfig.class, DmsFhirClientConfig.class);
+		return List.of(TransferDataConfig.class);
 	}
 
 	@Override
@@ -50,29 +48,28 @@ public class DataTransferProcessPluginDefinition implements ProcessPluginDefinit
 		var aReceive = "fhir/ActivityDefinition/data-transfer-receive.xml";
 		var aSend = "fhir/ActivityDefinition/data-transfer-send.xml";
 
-		var cCrypto = "fhir/CodeSystem/mii-cryptography.xml";
 		var cDaSeSt = "fhir/CodeSystem/mii-data-set-status.xml";
 		var cDaTr = "fhir/CodeSystem/data-transfer.xml";
 
 		var eDaSeStEr = "fhir/StructureDefinition/extension-data-set-status-error.xml";
 
 		var nPrId = "fhir/NamingSystem/mii-project-identifier.xml";
+		var nReKeId = "fhir/NamingSystem/mii-receiver-key-id.xml";
 
 		var sSend = "fhir/StructureDefinition/task-data-send.xml";
 		var sSendStart = "fhir/StructureDefinition/task-data-send-start.xml";
 		var sStatus = "fhir/StructureDefinition/task-data-status.xml";
 
 		var tSendStart = "fhir/Task/task-data-send-start.xml";
-
-		var vCrypto = "fhir/ValueSet/mii-cryptography.xml";
 		var vDaSeStRe = "fhir/ValueSet/mii-data-set-status-receive.xml";
 		var vDaSeStSe = "fhir/ValueSet/mii-data-set-status-send.xml";
 		var vDaTr = "fhir/ValueSet/data-transfer.xml";
 
 		return Map.of( //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_RECEIVE, //
-				List.of(aReceive, cCrypto, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sSend, vCrypto, vDaSeStRe, vDaTr), //
+				List.of(aReceive, cDaSeSt, cDaTr, eDaSeStEr, nReKeId, nPrId, sSend, vDaSeStRe, vDaTr), //
 				ConstantsDataTransfer.PROCESS_NAME_FULL_DATA_SEND, //
-				List.of(aSend, cDaSeSt, cDaTr, eDaSeStEr, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe, vDaTr));
+				List.of(aSend, cDaSeSt, cDaTr, eDaSeStEr, nReKeId, nPrId, sStatus, sSendStart, tSendStart, vDaSeStSe,
+						vDaTr));
 	}
 }

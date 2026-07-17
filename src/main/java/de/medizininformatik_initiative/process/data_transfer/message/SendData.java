@@ -1,11 +1,8 @@
 package de.medizininformatik_initiative.process.data_transfer.message;
 
-import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.List;
+import java.util.function.Function;
 
-import org.camunda.bpm.engine.delegate.BpmnError;
-import org.camunda.bpm.engine.delegate.DelegateExecution;
-import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.ResourceType;
@@ -13,46 +10,41 @@ import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.Task.ParameterComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
+import de.medizininformatik_initiative.processes.common.activity.RetryTaskSender;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
-import de.medizininformatik_initiative.processes.common.util.DataSetStatusGenerator;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.bpe.v1.activity.AbstractTaskMessageSend;
-import dev.dsf.bpe.v1.constants.NamingSystems;
-import dev.dsf.bpe.v1.variables.Variables;
-import dev.dsf.fhir.client.FhirWebserviceClient;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.activity.MessageSendTask;
+import dev.dsf.bpe.v2.activity.task.TaskSender;
+import dev.dsf.bpe.v2.activity.values.SendTaskValues;
+import dev.dsf.bpe.v2.constants.NamingSystems;
+import dev.dsf.bpe.v2.error.MessageSendTaskErrorHandler;
+import dev.dsf.bpe.v2.error.impl.ExceptionToErrorBoundaryEventTranslationErrorHandler;
+import dev.dsf.bpe.v2.variables.Target;
+import dev.dsf.bpe.v2.variables.Variables;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
-public class SendData extends AbstractTaskMessageSend implements InitializingBean
+public class SendData implements MessageSendTask
 {
 	private static final Logger logger = LoggerFactory.getLogger(SendData.class);
 
-	private final DataSetStatusGenerator statusGenerator;
-
-	public SendData(ProcessPluginApi api, DataSetStatusGenerator statusGenerator)
+	public SendData()
 	{
-		super(api);
-		this.statusGenerator = statusGenerator;
 	}
 
 	@Override
-	public void afterPropertiesSet() throws Exception
+	public List<ParameterComponent> getAdditionalInputParameters(ProcessPluginApi api, Variables variables,
+			SendTaskValues sendTaskValues, Target target)
 	{
-		super.afterPropertiesSet();
-		Objects.requireNonNull(statusGenerator, "statusGenerator");
-	}
-
-	@Override
-	protected Stream<ParameterComponent> getAdditionalInputParameters(DelegateExecution execution, Variables variables)
-	{
+		String version = api.getProcessPluginDefinition().getResourceVersion();
 		String documentReferenceId = variables
 				.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION);
 
 		ParameterComponent documentReferenceComponent = new ParameterComponent();
 		documentReferenceComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(version)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DOCUMENT_REFERENCE_LOCATION);
 		documentReferenceComponent.setValue(
 				new Reference().setType(ResourceType.DocumentReference.name()).setReference(documentReferenceId));
@@ -62,7 +54,7 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 
 		Task.ParameterComponent projectIdentifierComponent = new Task.ParameterComponent();
 		projectIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
-				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
+				.setVersion(version).setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_PROJECT_IDENTIFIER);
 		projectIdentifierComponent.setValue(new Identifier()
 				.setSystem(ConstantsBase.NAMINGSYSTEM_MII_PROJECT_IDENTIFIER).setValue(projectIdentifier));
 
@@ -71,55 +63,42 @@ public class SendData extends AbstractTaskMessageSend implements InitializingBea
 
 		Task.ParameterComponent consortiumIdentifierComponent = new Task.ParameterComponent();
 		consortiumIdentifierComponent.getType().addCoding().setSystem(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER)
+				.setVersion(version)
 				.setCode(ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_CONSORTIUM_IDENTIFIER);
 		consortiumIdentifierComponent.setValue(new Reference().setType(ResourceType.Organization.name())
 				.setIdentifier(NamingSystems.OrganizationIdentifier.withValue(consortiumIdentifier)));
 
-		return Stream.of(documentReferenceComponent, projectIdentifierComponent, consortiumIdentifierComponent);
+		return List.of(documentReferenceComponent, projectIdentifierComponent, consortiumIdentifierComponent);
 	}
 
 	@Override
-	protected IdType doSend(FhirWebserviceClient client, Task task)
+	public TaskSender getTaskSender(ProcessPluginApi api, Variables variables, SendTaskValues sendTaskValues)
 	{
-		return client.withMinimalReturn()
-				.withRetry(ConstantsBase.DSF_CLIENT_RETRY_6_TIMES, ConstantsBase.DSF_CLIENT_RETRY_INTERVAL_5MIN)
-				.create(task);
+		return new RetryTaskSender(api, variables, sendTaskValues, getBusinessKeyStrategy(),
+				(target) -> getAdditionalInputParameters(api, variables, sendTaskValues, target));
 	}
 
 	@Override
-	protected void handleSendTaskError(DelegateExecution execution, Variables variables, Exception exception,
-			String errorMessage)
+	public MessageSendTaskErrorHandler getErrorHandler()
 	{
-		Task task = variables.getStartTask();
-
-		String statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE;
-		if (exception instanceof WebApplicationException webApplicationException
-				&& webApplicationException.getResponse() != null
-				&& webApplicationException.getResponse().getStatus() == Response.Status.FORBIDDEN.getStatusCode())
+		Function<Exception, String> errorCodeTranslator = (exception) ->
 		{
-			statusCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
-		}
+			String errorCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_REACHABLE;
+			if (exception instanceof WebApplicationException webApplicationException
+					&& webApplicationException.getResponse() != null
+					&& webApplicationException.getResponse().getStatus() == Response.Status.FORBIDDEN.getStatusCode())
+			{
+				errorCode = ConstantsBase.CODESYSTEM_DATA_SET_STATUS_VALUE_NOT_ALLOWED;
+			}
 
-		task.setStatus(Task.TaskStatus.FAILED);
-		task.addOutput(
-				statusGenerator.createDataSetStatusOutput(statusCode, ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER,
-						ConstantsDataTransfer.CODESYSTEM_DATA_TRANSFER_VALUE_DATA_SET_STATUS, "Send data-set failed"));
-		variables.updateTask(task);
+			logger.error("Send data-set failed with error code '{}' - {} - throwing error boundary event", errorCode,
+					exception.getMessage());
+			return errorCode;
+		};
 
-		logger.warn(
-				"Could not send DocumentReference with id '{}' for project-identifier '{}' to DMS with identifier '{}' referenced in Task with id '{}' - {}",
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_TRANSFER_DOCUMENT_REFERENCE_LOCATION),
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_PROJECT_IDENTIFIER),
-				variables.getString(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DMS_IDENTIFIER), task.getId(),
-				exception.getMessage());
+		Function<Exception, String> errorMessageTranslator = (exception) -> "Send data-set failed"
+				+ ConstantsBase.EXCEPTION_MESSAGE_DIVIDER + exception.getMessage();
 
-		String error = "Send DocumentReference location failed - " + exception.getMessage();
-		throw new BpmnError(ConstantsDataTransfer.BPMN_EXECUTION_VARIABLE_DATA_SEND_ERROR, error, exception);
-	}
-
-	@Override
-	protected void addErrorMessage(Task task, String errorMessage)
-	{
-		// Override in order not to add error message of AbstractTaskMessageSend
+		return new ExceptionToErrorBoundaryEventTranslationErrorHandler(errorCodeTranslator, errorMessageTranslator);
 	}
 }
