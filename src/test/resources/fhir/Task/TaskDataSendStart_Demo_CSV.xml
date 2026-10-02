@@ -7,10 +7,10 @@
    <intent value="order" />
    <authoredOn value="2022-11-16T11:00:00+01:00" />
    <requester>
-      <type value="Organization" />
+      <type value="Practitioner" />
       <identifier>
-         <system value="http://dsf.dev/sid/organization-identifier" />
-         <value value="Test_DIC1" />
+         <system value="http://dsf.dev/sid/practitioner-identifier" />
+         <value value="to-be-replaced-with-certificate-email" />
       </identifier>
    </requester>
    <restriction>
@@ -35,6 +35,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="dms-identifier" />
          </coding>
       </type>
@@ -50,6 +51,7 @@
       <type>
          <coding>
             <system value="http://medizininformatik-initiative.de/fhir/CodeSystem/data-transfer" />
+            <version value="2.0" />
             <code value="project-identifier" />
          </coding>
       </type>

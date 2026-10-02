@@ -25,10 +25,10 @@ import org.springframework.beans.factory.InitializingBean;
 
 import de.medizininformatik_initiative.process.data_transfer.ConstantsDataTransfer;
 import de.medizininformatik_initiative.processes.common.util.ConstantsBase;
-import dev.dsf.bpe.v1.ProcessPluginApi;
-import dev.dsf.fhir.authorization.process.ProcessAuthorizationHelper;
-import dev.dsf.fhir.authorization.process.Recipient;
-import dev.dsf.fhir.authorization.process.Requester;
+import dev.dsf.bpe.v2.ProcessPluginApi;
+import dev.dsf.bpe.v2.service.process.ProcessAuthorizationHelper;
+import dev.dsf.bpe.v2.service.process.Recipient;
+import dev.dsf.bpe.v2.service.process.Requester;
 
 public class AuthorizationProvider implements InitializingBean
 {
@@ -49,16 +49,13 @@ public class AuthorizationProvider implements InitializingBean
 
 	private final ProcessPluginApi api;
 
-	private final String resourcesVersion;
-
 	private final List<ProcessAuthorization> additionallyAllowedSenders;
 	private final List<ProcessAuthorization> additionallyAllowedReceivers;
 
-	public AuthorizationProvider(ProcessPluginApi api, String resourcesVersion, List<String> additionallyAllowedSenders,
+	public AuthorizationProvider(ProcessPluginApi api, List<String> additionallyAllowedSenders,
 			List<String> additionallyAllowedReceivers)
 	{
 		this.api = api;
-		this.resourcesVersion = resourcesVersion;
 
 		additionallyAllowedSenders
 				.add(ConstantsBase.NAMINGSYSTEM_DSF_ORGANIZATION_IDENTIFIER_MEDICAL_INFORMATICS_INITIATIVE_CONSORTIUM
@@ -76,54 +73,53 @@ public class AuthorizationProvider implements InitializingBean
 	public void afterPropertiesSet() throws Exception
 	{
 		Objects.requireNonNull(api, "api");
-		Objects.requireNonNull(resourcesVersion, "resourcesVersion");
-
 		Objects.requireNonNull(additionallyAllowedSenders, "allowedSenders");
 		Objects.requireNonNull(additionallyAllowedReceivers, "allowedReceivers");
 	}
 
 	public void searchCheckAddAndUpdateAuthorizationDataSend()
 	{
-		searchCheckAddAndUpdateAuthorization(ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+		searchCheckAddAndUpdateAuthorization(ConstantsDataTransfer.PROCESS_URL_DATA_SEND,
 				this::checkAddAndUpdateAuthorizationDataSend);
 	}
 
 	public void searchCheckAddAndUpdateAuthorizationDataReceive()
 	{
-		searchCheckAddAndUpdateAuthorization(ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
+		searchCheckAddAndUpdateAuthorization(ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE,
 				this::checkAddAndUpdateAuthorizationDataReceive);
 	}
 
 	public void checkAddAndUpdateAuthorizationDataSend(ActivityDefinition activityDefinition)
 	{
+		String resourceVersion = api.getProcessPluginDefinition().getResourceVersion();
 		boolean processAuthorizationChanged = false;
 
 		// for each entry in allowedSender: check if exists or add requester for task-data-send-start (LOCAL_ROLE,
 		// LOCAL_ROLE_PRACTITIONER)
 		// for each entry in allowedSender: check if exists or add recipient for task-data-send-start (LOCAL_ROLE)
 		Set<Requester> currentRequestersDataSendStart = api.getProcessAuthorizationHelper()
-				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START)
 				.collect(Collectors.toSet());
 		Set<Recipient> currentRecipientsDataSendStart = api.getProcessAuthorizationHelper()
-				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START)
 				.collect(Collectors.toSet());
 
-		Set<Requester> configuredRequestersDataSendStart = additionallyAllowedSenders.stream()
-				.flatMap(s -> Stream.of(
-						Requester.localRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
-						Requester.localRolePractitioner(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue,
-								ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE,
-								ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE_VALUE_DSF_ADMIN)))
+		Set<Requester> configuredRequestersDataSendStart = additionallyAllowedSenders.stream().flatMap(s -> Stream.of(
+				api.getProcessAuthorizationHelper().getRequesterFactory().localRole(s.parentOrganizationIdentifierValue,
+						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
+				api.getProcessAuthorizationHelper().getRequesterFactory().localRolePractitioner(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue, ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE,
+						ConstantsDataTransfer.CODE_SYSTEM_PRACTITIONER_ROLE_VALUE_DSF_ADMIN)))
 				.collect(Collectors.toSet());
 		Set<Recipient> configuredRecipientsDataSendStart = additionallyAllowedSenders.stream()
-				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
-						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
+				.map(s -> api.getProcessAuthorizationHelper().getRecipientFactory().localRole(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue))
 				.collect(Collectors.toSet());
 
 		Set<Requester> removedOldRequestersDataSendStart = currentRequestersDataSendStart.stream()
@@ -145,13 +141,13 @@ public class AuthorizationProvider implements InitializingBean
 
 			logger.info(
 					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START,
 					toRequesterString(removedOldRequestersDataSendStart));
 			logger.info(
 					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_START,
 					toRecipientString(removedOldRecipientsDataSendStart));
@@ -170,26 +166,27 @@ public class AuthorizationProvider implements InitializingBean
 		// REMOTE_ROLE)
 		// for each entry in allowedSender: check if exists or add recipient for task-data-status (LOCAL_ROLE)
 		Set<Requester> currentRequestersDataStatus = api.getProcessAuthorizationHelper()
-				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS)
 				.collect(Collectors.toSet());
 		Set<Recipient> currentRecipientsDataStatus = api.getProcessAuthorizationHelper()
-				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS)
 				.collect(Collectors.toSet());
 
-		Set<Requester> configuredRequestersDataStatus = additionallyAllowedReceivers.stream()
-				.flatMap(s -> Stream.of(
-						Requester.localRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
-						Requester.remoteRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue)))
+		Set<Requester> configuredRequestersDataStatus = additionallyAllowedReceivers.stream().flatMap(s -> Stream.of(
+				api.getProcessAuthorizationHelper().getRequesterFactory().localRole(s.parentOrganizationIdentifierValue,
+						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
+				api.getProcessAuthorizationHelper().getRequesterFactory().remoteRole(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue)))
 				.collect(Collectors.toSet());
 		Set<Recipient> configuredRecipientsDataStatus = additionallyAllowedSenders.stream()
-				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
-						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
+				.map(s -> api.getProcessAuthorizationHelper().getRecipientFactory().localRole(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue))
 				.collect(Collectors.toSet());
 
 		Set<Requester> removedOldRequestersDataStatus = currentRequestersDataStatus.stream()
@@ -211,12 +208,12 @@ public class AuthorizationProvider implements InitializingBean
 
 			logger.info(
 					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRequesterString(removedOldRequestersDataStatus));
 			logger.info(
 					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_SEND, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_STATUS, toRecipientString(removedOldRecipientsDataStatus));
 
@@ -236,30 +233,33 @@ public class AuthorizationProvider implements InitializingBean
 
 	public void checkAddAndUpdateAuthorizationDataReceive(ActivityDefinition activityDefinition)
 	{
+		String resourceVersion = api.getProcessPluginDefinition().getResourceVersion();
+
 		// for each entry in allowedSender: check if exists or add requester for task-data-send (LOCAL_ROLE,
 		// REMOTE_ROLE)
 		// for each entry in allowedReceivers: check if exists or add recipient for task-data-status (LOCAL_ROLE)
 		Set<Requester> currentRequestersDataSend = api.getProcessAuthorizationHelper()
-				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
+				.getRequesters(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND)
 				.collect(Collectors.toSet());
 		Set<Recipient> currentRecipientsDataSend = api.getProcessAuthorizationHelper()
-				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
+				.getRecipients(activityDefinition, ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourceVersion,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 						ConstantsDataTransfer.PROFILE_TASK_DATA_SEND)
 				.collect(Collectors.toSet());
 
-		Set<Requester> configuredRequestersDataSend = additionallyAllowedSenders.stream()
-				.flatMap(s -> Stream.of(
-						Requester.localRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
-						Requester.remoteRole(s.parentOrganizationIdentifierValue,
-								ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue)))
+		Set<Requester> configuredRequestersDataSend = additionallyAllowedSenders.stream().flatMap(s -> Stream.of(
+				api.getProcessAuthorizationHelper().getRequesterFactory().localRole(s.parentOrganizationIdentifierValue,
+						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue),
+				api.getProcessAuthorizationHelper().getRequesterFactory().remoteRole(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue)))
 				.collect(Collectors.toSet());
 		Set<Recipient> configuredRecipientsDataSend = additionallyAllowedReceivers.stream()
-				.map(s -> Recipient.localRole(s.parentOrganizationIdentifierValue,
-						ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE, s.organizationRoleCodingValue))
+				.map(s -> api.getProcessAuthorizationHelper().getRecipientFactory().localRole(
+						s.parentOrganizationIdentifierValue, ConstantsDataTransfer.CODE_SYSTEM_ORGANIZATION_ROLE,
+						s.organizationRoleCodingValue))
 				.collect(Collectors.toSet());
 
 		Set<Requester> removedOldRequestersDataSend = currentRequestersDataSend.stream()
@@ -281,12 +281,12 @@ public class AuthorizationProvider implements InitializingBean
 
 			logger.info(
 					"Adjusting allowed data-set senders to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRequesterString(removedOldRequestersDataSend));
 			logger.info(
 					"Adjusting allowed data-set receivers to the authorization rules for process '{}', version '{}', message-name '{}' and task-profile '{}': {}",
-					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourcesVersion,
+					ConstantsDataTransfer.PROCESS_URL_DATA_RECEIVE, resourceVersion,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND_MESSAGE_NAME,
 					ConstantsDataTransfer.PROFILE_TASK_DATA_SEND, toRecipientString(removedOldRecipientsDataSend));
 
@@ -301,17 +301,17 @@ public class AuthorizationProvider implements InitializingBean
 		}
 	}
 
-	private void searchCheckAddAndUpdateAuthorization(String url, String version,
+	private void searchCheckAddAndUpdateAuthorization(String url,
 			Consumer<ActivityDefinition> checkAddAndUpdateAuthorization)
 	{
-		Bundle searchResult = searchActivityDefinition(url, version);
+		Bundle searchResult = searchActivityDefinition(url);
 		extractActivityDefinition(searchResult).ifPresent(checkAddAndUpdateAuthorization);
 	}
 
-	private Bundle searchActivityDefinition(String url, String version)
+	private Bundle searchActivityDefinition(String url)
 	{
-		return api.getFhirWebserviceClientProvider().getLocalWebserviceClient().search(ActivityDefinition.class,
-				Map.of("url", List.of(url), "version", List.of(version)));
+		return api.getDsfClientProvider().getLocal().search(ActivityDefinition.class,
+				Map.of("url", List.of(url), "version", List.of(api.getProcessPluginDefinition().getResourceVersion())));
 	}
 
 	private Optional<ActivityDefinition> extractActivityDefinition(Bundle bundle)
@@ -323,7 +323,7 @@ public class AuthorizationProvider implements InitializingBean
 
 	private void updateResource(Resource resource)
 	{
-		api.getFhirWebserviceClientProvider().getLocalWebserviceClient().update(resource);
+		api.getDsfClientProvider().getLocal().update(resource);
 	}
 
 	private Predicate<Requester> containsOldRequester(Set<Requester> configureds)
@@ -367,7 +367,7 @@ public class AuthorizationProvider implements InitializingBean
 
 	private String appendVersion(String url)
 	{
-		return url + "|" + resourcesVersion;
+		return url + "|" + api.getProcessPluginDefinition().getResourceVersion();
 	}
 
 	private String toRequesterString(Set<Requester> requesters)
